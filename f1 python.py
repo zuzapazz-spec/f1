@@ -17,15 +17,19 @@ import json
 import numpy as np
 import os
 
-# ── Configuration ─────────────────────────────────────────────────────────────
-YEAR         = 2025
-ROUND_NUMBER = 10          # British GP (Silverstone) - change to any completed round
-SESSION_TYPE = 'R'         # 'R' = Race, 'Q' = Qualifying
-SAMPLE_EVERY = 10          # Keep every Nth telemetry sample (higher = smaller file)
-MAX_DRIVERS  = 20          # Max drivers to include
-OUTPUT_FILE  = "race_data.json"
-CACHE_DIR    = ".fastf1_cache"
-# ──────────────────────────────────────────────────────────────────────────────
+RACES={
+    1:{"name":"Australian Gp", "round": 1},
+    2:{"name": "Chinese GP", "round": 2},
+    3:{"name": "Japanese GP", "round": 3},
+    4:  {"name": "Bahrain GP", "round": 4},
+    5:  {"name": "Saudi Arabian GP","round": 5},
+    6:  {"name": "Miami GP", "round": 6},
+    7:  {"name": "Emilia Romagna GP", "round": 7},
+    8:  {"name": "Monaco GP", "round": 8},
+    9:  {"name": "Spanish GP", "round": 9},
+    10: {"name": "Canadian GP", "round": 10},
+}
+
 
 TEAM_COLORS = {
     'Mercedes':         '#00D2BE',
