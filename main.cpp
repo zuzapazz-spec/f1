@@ -4,47 +4,50 @@
 #include <string>
 #include <iostream>
 #include <fstream>
-using namespace std;
+
 using json = nlohmann::json;
+
 struct TrackPoint {
     float x, y;
 };
 
 struct CarFrame {
-    string driver;
+    std::string driver;
     float x, y;
     int speed;
     int gear;
 };
+
 struct Frame {
     float time;
     int lap;
-    vector<CarFrame> cars;
+    std::vector<CarFrame> cars;
 };
+
 struct RaceData {
-    string event;
-    string circuit;
-    string session;
+    std::string event;
+    std::string circuit;
+    std::string session;
     std::vector<TrackPoint> trackPoints;
     std::vector<Frame> frames;
 
 };
+
 class F1Car {
     public:
     sf::CircleShape shape;
     std::string driverCode;
     sf::Text label;
 
-    F1Car(std::string code , sf::Color color, const sf::Font& font ):driverCode(code), label(font, code, 12) {
+    F1Car(std::string code, sf::Color color, const sf::Font& font ):driverCode(code), label(font, code, 12) {
         shape.setRadius(8.f);
         shape.setFillColor(color);
         shape.setOrigin({8.f,8.f});
         label.setFillColor(sf::Color::White);
         label.setOutlineColor(sf::Color::Black);
         label.setOutlineThickness(1.f);
-
-
     }
+
     void updatePosition(float x, float y) {
         shape.setPosition({x,y});
         label.setPosition({x + 10.f,y - 14.f});
@@ -55,6 +58,7 @@ class F1Car {
         window.draw(label);
     }
 };
+
 RaceData parseRace(const json& raceJson) {
     RaceData rd;
     rd.event = raceJson.value("event", "Unknown");
@@ -63,8 +67,8 @@ RaceData parseRace(const json& raceJson) {
 
     for (auto& pt: raceJson["track_points"]) {
         rd.trackPoints.push_back({pt["x"], pt["y"]});
-
     }
+
     for (auto& f: raceJson["frames"]) {
         Frame frame;
         frame.time = f["t"];
@@ -82,6 +86,7 @@ RaceData parseRace(const json& raceJson) {
     }
     return rd;
 }
+
 std::vector <F1Car> buildCars(const json& driversJson, const sf::Font& font) {
     std::vector <F1Car> cars;
     for (auto& [code, info]: driversJson.items()) {
@@ -91,7 +96,8 @@ std::vector <F1Car> buildCars(const json& driversJson, const sf::Font& font) {
     }
     return cars;
 }
-sf::VertexArray buildTrack(const std::vector <TrackPoint>& points) {
+
+sf::VertexArray buildTrack(const std::vector<TrackPoint>& points) {
     sf::VertexArray track(sf::PrimitiveType::LineStrip);
     for (auto& pt: points) {
         sf::Vertex v;
@@ -101,6 +107,7 @@ sf::VertexArray buildTrack(const std::vector <TrackPoint>& points) {
     }
     return track;
 }
+
 struct MenuButton {
     sf::RectangleShape box;
     sf::Text text;
@@ -108,6 +115,7 @@ struct MenuButton {
 
     MenuButton(const sf::Font& font) : text(font, "", 18) {}
 };
+
 std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, const sf::Font& font) {
     std::vector<MenuButton> buttons;
     float startY = 120.f;
@@ -116,7 +124,7 @@ std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, c
     float gap = 10.f;
     float startX = (1200.f - btnW) / 2.f;
 
-    for (size_t i = 0; i < keys.size(); ++i) {
+    for (size_t i = 0; i < keys.size(); i++) {
         MenuButton btn(font);
         btn.raceKey = keys[i];
 
@@ -136,7 +144,9 @@ std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, c
         auto bounds = btn.text.getLocalBounds();
         btn.text.setPosition({
             startX + (btnW - bounds.size.x)/2.f,
-            startY + i * (btnH + gap) + (btnH - bounds.size.y) / 2.f - 4.f});
+            startY + i * (btnH + gap) + (btnH - bounds.size.y) / 2.f - 4.f
+        });
+
         buttons.push_back(btn);
     }
     return buttons;
@@ -147,10 +157,19 @@ int main () {
     window.setFramerateLimit(60);
 
     sf::Font font;
-    if (!font.openFromFile("/System/Library/Fonts/Supplemental/Arial.ttf")) {
-        std::cerr<<"Font not found"<<std::endl;
+    std::string fontPath;
+
+#ifdef _WIN32
+    fontPath="C:/Windows/Fonts/arial.ttf";
+#else
+    fontPath="/System/Library/Fonts/Supplemental/Arial.ttf";
+#endif
+
+    if (!font.openFromFile(fontPath)) {
+        std::cerr<<"Font not found at:"<<fontPath<<std::endl;
         return -1;
     }
+
     std::ifstream file("races_all.json");
     if (!file.is_open()) {
         std::cerr<<"File not found"<<std::endl;
@@ -162,10 +181,12 @@ int main () {
     for (auto& [key,value] : j["races"].items()) {
         raceKeys.push_back(key);
     }
+
     if (raceKeys.empty()) {
         std::cerr<<"Race Keys not found"<<std::endl;
         return -1;
     }
+
     enum class AppState {MENU, RACE};
     AppState state = AppState::MENU;
 
@@ -184,12 +205,14 @@ int main () {
         auto b= titleText.getLocalBounds();
         titleText.setPosition({(1200.f - b.size.x)/ 2.f, 40.f});
     }
+
     sf::Text subtitleText(font, "Kliknij aby odtworzyc replay", 16);
     subtitleText.setFillColor(sf::Color(150, 150, 150));
     {
         auto b= subtitleText.getLocalBounds();
         subtitleText.setPosition({(1200.f - b.size.x)/ 2.f, 85.f});
     }
+
     sf::Text hudText(font, "", 18);
     hudText.setFillColor(sf::Color::White);
     hudText.setPosition({10.f, 10.f});
@@ -206,11 +229,11 @@ int main () {
     progressFill.setPosition({0.f, 694.f});
     progressFill.setFillColor(sf::Color(220, 0, 0));
 
-
-
     while (window.isOpen()) {
+
         while (const std::optional event = window.pollEvent()) {
-            if (event->is<sf::Event::Closed>()) window.close();
+            if (event->is<sf::Event::Closed>())
+                window.close();
         }
 
         if (frameIndex < frames.size()) {
