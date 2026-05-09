@@ -1,16 +1,3 @@
-"""
-F1 Race Replay - Data Fetcher
-Fetches car position telemetry from a 2025 F1 race using FastF1
-and exports it as a JSON file for the C++ visualizer.
-
-Usage:
-    pip install fastf1
-    python fetch_f1_data.py
-
-Output:
-    race_data_<NazwaWyscigu>.json  - position frames + track layout
-"""
-
 import fastf1
 import json
 import numpy as np
@@ -45,10 +32,11 @@ RACES = {
 }
 
 # ── Stała konfiguracja ─────────────────────────────────────────────────────────
-YEAR        = 2025
-SAMPLE_EVERY = 10   # Co który sample telemetrii zachować (wyżej = mniejszy plik)
-MAX_DRIVERS  = 20   # Maksymalna liczba kierowców
+YEAR         = 2025
+SAMPLE_EVERY = 10
+MAX_DRIVERS  = 20
 CACHE_DIR    = ".fastf1_cache"
+OUTPUT_FILE  = "races_all.json"
 # ──────────────────────────────────────────────────────────────────────────────
 
 TEAM_COLORS = {
@@ -71,7 +59,6 @@ def hex_to_rgb(hex_color):
 
 
 def normalize_track(x_arr, y_arr, target_width=1200, target_height=700, padding=80):
-    """Skaluje współrzędne toru do rozmiaru canvasu."""
     x_min, x_max = x_arr.min(), x_arr.max()
     y_min, y_max = y_arr.min(), y_arr.max()
     scale = min(
@@ -80,19 +67,50 @@ def normalize_track(x_arr, y_arr, target_width=1200, target_height=700, padding=
     )
     x_norm = (x_arr - x_min) * scale + padding + (target_width  - 2*padding - (x_max - x_min)*scale) / 2
     y_norm = (y_arr - y_min) * scale + padding + (target_height - 2*padding - (y_max - y_min)*scale) / 2
-    y_norm = target_height - y_norm  # Odwróć oś Y (współrzędne ekranowe)
+    y_norm = target_height - y_norm
     return x_norm, y_norm, x_min, x_max, y_min, y_max, scale
 
 
-def wybierz_wyscig():
-    """Interaktywny wybór wyścigu z listy."""
-    print("\n" + "="*55)
+def _race_key(race, session_type):
+    """Unikalny klucz dla wyścigu+sesji, używany jako ID w JSON."""
+    suffix = "Race" if session_type == 'R' else "Sprint"
+    return f"{race['name'].replace(' ', '_')}_{suffix}"
+
+
+def wczytaj_istniejacy_plik():
+    """Wczytuje races_all.json jeśli już istnieje, zwraca słownik wyścigów."""
+    if os.path.exists(OUTPUT_FILE):
+        print(f"📂 Znaleziono istniejący plik '{OUTPUT_FILE}' — doczytam nowe wyścigi.")
+        with open(OUTPUT_FILE, 'r') as f:
+            data = json.load(f)
+        return data.get("races", {})
+    return {}
+
+
+def zapisz_plik(races_dict):
+    """Zapisuje wszystkie wyścigi do races_all.json."""
+    output = {
+        "year":  YEAR,
+        "races": races_dict,
+    }
+    with open(OUTPUT_FILE, 'w') as f:
+        json.dump(output, f, separators=(',', ':'))
+    size_mb = os.path.getsize(OUTPUT_FILE) / 1_000_000
+    print(f"\n✅ Zapisano '{OUTPUT_FILE}' ({size_mb:.1f} MB) — {len(races_dict)} wyścig(ów) w pliku.")
+
+
+def wybierz_wyscig(races_dict):
+    """Wyświetla listę wyścigów z oznaczeniem już pobranych."""
+    print("\n" + "="*62)
     print("  F1 2025 – Wybór wyścigu")
-    print("="*55)
+    print("="*62)
     for key, race in RACES.items():
-        sprint_tag = " [SPRINT]" if race["sprint"] else ""
-        print(f"  {key:>2}. {race['name']:<22} ({race['circuit']}){sprint_tag}")
-    print("="*55)
+        race_key    = _race_key(race, 'R')
+        sprint_tag  = " [SPRINT]" if race["sprint"] else ""
+        pobrano_tag = " ✓" if race_key in races_dict else ""
+        print(f"  {key:>2}. {race['name']:<22} ({race['circuit']}){sprint_tag}{pobrano_tag}")
+    print("="*62)
+    print("  ✓ = już pobrane i zapisane w pliku")
 
     while True:
         try:
@@ -106,7 +124,7 @@ def wybierz_wyscig():
 
 
 def wybierz_sesje(race):
-    """Wybór sesji: wyścig główny lub sprint (jeśli dostępny)."""
+    """Wybór sesji: wyścig główny lub sprint."""
     print(f"\nDostępne sesje dla {race['name']}:")
     print("  1. Wyścig (Race)")
     if race["sprint"]:
@@ -125,16 +143,13 @@ def wybierz_sesje(race):
             print("  ❌ Nieprawidłowy wybór.")
 
 
-def pobierz_dane(race, session_type):
-    """Główna logika pobierania i eksportu danych telemetrycznych."""
+def pobierz_dane(race, session_type, races_dict):
+    """Pobiera dane wyścigu i dodaje do słownika races_dict."""
 
-    safe_name = race["name"].replace(" ", "_").replace("/", "-")
-    session_suffix = "Race" if session_type == 'R' else "Sprint"
-    output_file = f"race_data_{safe_name}_{session_suffix}.json"
+    race_key = _race_key(race, session_type)
 
-    # Sprawdź czy plik już istnieje
-    if os.path.exists(output_file):
-        ans = input(f"\n⚠️  Plik '{output_file}' już istnieje. Nadpisać? (t/n): ")
+    if race_key in races_dict:
+        ans = input(f"\n⚠️  '{race_key}' już istnieje w pliku. Nadpisać? (t/n): ")
         if ans.lower() != 't':
             print("Pominięto.")
             return
@@ -152,11 +167,11 @@ def pobierz_dane(race, session_type):
     # ── Layout toru ──────────────────────────────────────────────────────────
     print("Wyodrębniam layout toru...")
     fastest = session.laps.pick_fastest()
-    tel = fastest.get_telemetry()
-    raw_x = tel['X'].values.astype(float)
-    raw_y = tel['Y'].values.astype(float)
+    tel     = fastest.get_telemetry()
+    raw_x   = tel['X'].values.astype(float)
+    raw_y   = tel['Y'].values.astype(float)
 
-    step = max(1, len(raw_x) // 500)
+    step  = max(1, len(raw_x) // 500)
     raw_x = raw_x[::step]
     raw_y = raw_y[::step]
 
@@ -166,7 +181,7 @@ def pobierz_dane(race, session_type):
                     for nx, ny in zip(norm_x, norm_y)]
 
     # ── Lista kierowców ──────────────────────────────────────────────────────
-    drivers = list(session.drivers)[:MAX_DRIVERS]
+    drivers     = list(session.drivers)[:MAX_DRIVERS]
     driver_info = {}
     for drv in drivers:
         try:
@@ -190,11 +205,10 @@ def pobierz_dane(race, session_type):
 
     # ── Klatki pozycji ───────────────────────────────────────────────────────
     print("Buduję klatki pozycji (to może chwilę potrwać)...")
-    frames = []
-    all_laps = session.laps
-    ref_laps = all_laps[all_laps['Driver'] == drivers[0]].sort_values('LapStartTime')
-
-    sampled = 0
+    frames           = []
+    all_laps         = session.laps
+    ref_laps         = all_laps[all_laps['Driver'] == drivers[0]].sort_values('LapStartTime')
+    sampled          = 0
     total_frames_raw = 0
 
     for i, (_, lap) in enumerate(ref_laps.iterrows()):
@@ -259,11 +273,11 @@ def pobierz_dane(race, session_type):
 
     print(f"\nLiczba wyeksportowanych klatek: {len(frames)}")
 
-    # ── Zapis JSON ───────────────────────────────────────────────────────────
-    output = {
+    # ── Dodaj do słownika ────────────────────────────────────────────────────
+    races_dict[race_key] = {
         "event":         event_name,
-        "year":          YEAR,
         "round":         race["round"],
+        "circuit":       race["circuit"],
         "session":       session_type,
         "canvas_width":  1200,
         "canvas_height": 700,
@@ -272,21 +286,21 @@ def pobierz_dane(race, session_type):
         "frames":        frames,
     }
 
-    with open(output_file, 'w') as f:
-        json.dump(output, f, separators=(',', ':'))
-
-    size_mb = os.path.getsize(output_file) / 1_000_000
-    print(f"\n✅ Zapisano do {output_file} ({size_mb:.1f} MB)")
-    print(f"   {len(track_points)} punktów toru | {len(frames)} klatek | {len(driver_info)} kierowców")
+    print(f"  Dodano '{race_key}' do pliku.")
 
 
 def main():
     print("\n🏎  F1 Race Replay – Data Fetcher")
 
+    races_dict = wczytaj_istniejacy_plik()
+
     while True:
-        race         = wybierz_wyscig()
+        race         = wybierz_wyscig(races_dict)
         session_type = wybierz_sesje(race)
-        pobierz_dane(race, session_type)
+        pobierz_dane(race, session_type, races_dict)
+
+        # Zapisz po każdym wyścigu — żeby nie stracić danych przy przerwaniu
+        zapisz_plik(races_dict)
 
         again = input("\nPobrać kolejny wyścig? (t/n): ")
         if again.lower() != 't':
@@ -296,3 +310,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+ 
