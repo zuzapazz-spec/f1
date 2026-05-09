@@ -231,33 +231,161 @@ int main () {
 
     while (window.isOpen()) {
 
+        // 1. OBSŁUGA ZDARZEŃ
         while (const std::optional event = window.pollEvent()) {
-            if (event->is<sf::Event::Closed>())
+            if (event->is<sf::Event::Closed>()) {
                 window.close();
-        }
+            }
 
-        if (frameIndex < frames.size()) {
-            for (auto& carData: frames[frameIndex]["cars"]) {
-                string drv = carData["drv"];
-                float x = carData["x"];
-                float y = carData["y"];
-                for (auto& car : activeCars) {
-                    if (car.driverCode == drv) {
-                        car.updatePosition(x, y);
+            // Obsługa myszki
+
+            if (const auto* mouse = event->getIf<sf::MouseButtonPressed>()) {
+                if (mouse->button == sf::Mouse::Left) {
+                    sf::Vector2f mousePos = window.mapPixelToCoords({mouse->position.x, mouse->position.y});
+
+                    if (state == AppState::MENU) {
+                        for (auto& button : menuButtons) {
+                            if (button.box.getGlobalBounds().contains(mousePos)) {
+                                auto& raceJson = j["races"][button.raceKey];
+                                currentRace = parseRace(raceJson);
+                                activeCars = buildCars(raceJson["drivers"], font);
+                                trackline = buildTrack(currentRace.trackPoints);
+
+                                frameIndex = 0;
+                                paused = false;
+                                clock.restart();
+                                state = AppState::RACE;
+                            }
+                        }
                     }
                 }
-                if (clock.getElapsedTime().asMilliseconds() > 100) {
+            }
+
+            // Obsługa klawiatury
+
+            if (const auto* key = event->getIf<sf::KeyPressed>()) {
+                if (state == AppState::RACE) {
+                    if (key->code == sf::Keyboard::Key::Space) {
+                        paused = !paused;
+                    }
+                    if (key->code == sf::Keyboard::Key::Right) {
+                        if (!currentRace.frames.empty()) {
+                            frameIndex = std::min(frameIndex + 20, currentRace.frames.size() - 1);
+                        }
+                    }
+                    if (key->code == sf::Keyboard::Key::Left) {
+                        frameIndex = (frameIndex >= 20) ? frameIndex - 20 : 0;
+                    }
+                    if (key->code == sf::Keyboard::Key::R) {
+                        frameIndex = 0;
+                        clock.restart();
+                    }
+                    if (key->code == sf::Keyboard::Key::Escape) {
+                        state = AppState::MENU;
+                    }
+                }
+            }
+        }
+
+        // 2. AKTUALIZACJE
+
+        window.clear(sf::Color(20,20,20));
+
+        if (state == AppState::MENU) {
+            sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
+            sf::Vector2f mousePos = window.mapPixelToCoords(pixelPos);
+
+            for (auto& button : menuButtons) {
+                if (button.box.getGlobalBounds().contains(mousePos)) {
+                    button.box.setFillColor(sf::Color(80,20,20));
+                }
+                else {
+                    button.box.setFillColor(sf::Color(40,40,40));
+                }
+            }
+        }
+        else if (state == AppState::RACE) {
+            if (!currentRace.frames.empty() && frameIndex < currentRace.frames.size()) {
+                const Frame& frame = currentRace.frames[frameIndex];
+
+                // Aktualizacja pozycji bolidów
+
+                for (const auto& carData : frame.cars) {
+                    for (auto& car : activeCars) {
+                        if (car.driverCode == carData.driver) {
+                            car.updatePosition(carData.x, carData.y);
+                        }
+                    }
+                }
+
+                // Mierzenie czasu klatek
+
+                if (!paused && clock.getElapsedTime().asMilliseconds() > 80) {
                     frameIndex++;
                     clock.restart();
                 }
-            }
-            window.clear(sf::Color(20,20,20));
-            for (auto& car: activeCars) {
-                car.draw(window);
 
+                // Aktualizacja HUD
+
+                std::string pauseLabel = paused ? " [PAUZA]" : "";
+                hudText.setString(currentRace.event + " | Lap: " + std::to_string(frame.lap) + " | Time: " + std::to_string((int)frame.time) + "s" + pauseLabel);
+
+                // Aktualizacja paska postępu
+
+                float progress = (float)frameIndex / (float)currentRace.frames.size();
+                progressFill.setSize({1200.f * progress, 6.f});
             }
-            window.display();
         }
+
+        // 3. RYSOWANIE
+
+        if (state == AppState::MENU) {
+            window.draw(titleText);
+            window.draw(subtitleText);
+
+            for (auto& button : menuButtons) {
+                window.draw(button.box);
+                window.draw(button.text);
+            }
+        }
+
+        // Rysowanie toru
+
+        else if (state == AppState::RACE) {
+            window.draw(trackline);
+
+            // Rysowanie bolidów
+
+            for (auto& car : activeCars) {
+                car.draw(window);
+            }
+
+            // Wyświetlanie legendy kierowców
+
+            float legendY = 40.f;
+            float legendX = 1080.f;
+
+            for (auto& car : activeCars) {
+                sf::RectangleShape dot({10.f, 10.f});
+                dot.setFillColor(car.shape.getFillColor());
+                dot.setPosition({legendX, legendY + 4.f});
+                window.draw(dot);
+
+                sf::Text drvLabel(font, car.driverCode, 11);
+                drvLabel.setFillColor(sf::Color::White);
+                drvLabel.setPosition({legendX + 15.f, legendY});
+                window.draw(drvLabel);
+                legendY += 16.f;
+            }
+
+            window.draw(hudText);
+            window.draw(controlsText);
+            window.draw(progressBg);
+            window.draw(progressFill);
+        }
+
+        window.display();
     }
+
     return 0;
 }
