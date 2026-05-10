@@ -4,6 +4,8 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <cmath>
+#include <algorithm>
 
 using json = nlohmann::json;
 
@@ -21,6 +23,7 @@ struct CarFrame {
 struct Frame {
     float time;
     int lap;
+    int status;
     std::vector<CarFrame> cars;
 };
 
@@ -38,6 +41,9 @@ class F1Car {
     sf::CircleShape shape;
     std::string driverCode;
     sf::Text label;
+    std::string abbr;
+    std::vector<int> pitLaps;
+
 
     F1Car(std::string code, sf::Color color, const sf::Font& font ):driverCode(code), label(font, code, 12) {
         shape.setRadius(8.f);
@@ -73,6 +79,7 @@ RaceData parseRace(const json& raceJson) {
         Frame frame;
         frame.time = f["t"];
         frame.lap = f["lap"];
+        frame.status = f.value("status", 1);
         for (auto& c: f["cars"]) {
             CarFrame cf;
             cf.driver = c["drv"];
@@ -92,18 +99,39 @@ std::vector <F1Car> buildCars(const json& driversJson, const sf::Font& font) {
     for (auto& [code, info]: driversJson.items()) {
         auto rgb = info["color_rgb"];
         sf::Color color(rgb[0], rgb[1], rgb[2]);
-        cars.emplace_back(code, color, font);
+        F1Car car(code, color, font);
+        car.abbr = info.value("abbr", code);
+        car.label.setString(car.abbr);
+        for (auto& pl : info["pit_laps"])
+            car.pitLaps.push_back(pl.get<int>());
+        cars.push_back(std::move(car));
+
     }
+
     return cars;
 }
 
 sf::VertexArray buildTrack(const std::vector<TrackPoint>& points) {
-    sf::VertexArray track(sf::PrimitiveType::LineStrip);
-    for (auto& pt: points) {
-        sf::Vertex v;
-        v.position = {pt.x, pt.y };
-        v.color = sf::Color(90, 90, 90);
-        track.append(v);
+    sf::VertexArray track(sf::PrimitiveType::TriangleStrip);
+    float width = 8.f;
+
+    for (size_t i = 0; i + 1 < points.size(); i++) {
+        float dx = points[i+1].x - points[i].x;
+        float dy = points[i+1].y - points[i].y;
+        float len = std::sqrt(dx*dx + dy*dy);
+        if (len == 0) continue;
+
+        float nx = -dy / len * width * 0.5f;
+        float ny =  dx / len * width * 0.5f;
+
+        sf::Vertex v1, v2;
+        v1.position = {points[i].x + nx, points[i].y + ny};
+        v2.position = {points[i].x - nx, points[i].y - ny};
+        v1.color = sf::Color(90, 90, 90);
+        v2.color = sf::Color(90, 90, 90);
+
+        track.append(v1);
+        track.append(v2);
     }
     return track;
 }
@@ -151,6 +179,15 @@ std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, c
     }
     return buttons;
 
+}
+std::pair<sf::Color, std::string> getFlagInfo(int status) {
+    switch (status) {
+        case 2:  return {sf::Color(255, 255,   0), "YELLOW FLAG"};
+        case 4:  return {sf::Color(255, 165,   0), "SAFETY CAR"};
+        case 5:  return {sf::Color(255,   0,   0), "RED FLAG"};
+        case 6:  return {sf::Color(255, 165,   0), "VIRTUAL SC"};
+        default: return {sf::Color(  0, 255,   0), ""};
+    }
 }
 int main () {
     sf::RenderWindow window(sf::VideoMode({1200,700}), "F1 Telemetry Visualizer");
@@ -217,7 +254,7 @@ int main () {
     hudText.setFillColor(sf::Color::White);
     hudText.setPosition({10.f, 10.f});
 
-    sf::Text controlsText(font, "SPACJA:pauza    <-/->:przewijanie    ESC:menu", 13);
+    sf::Text controlsText(font, "SPACJA:pauza    A/D:przewijanie    F:fast forward    ESC:menu"  , 13);
     controlsText.setFillColor(sf::Color(120, 120, 120));
     controlsText.setPosition({10.f, 678.f});
 
@@ -239,8 +276,8 @@ int main () {
 
             // Obsługa myszki
 
-            if (const auto* mouse = event->getIf<sf::MouseButtonPressed>()) {
-                if (mouse->button == sf::Mouse::Left) {
+            if (const auto* mouse = event->getIf<sf::Event::MouseButtonPressed>()) {
+                if (mouse->button == sf::Mouse::Button::Left) {
                     sf::Vector2f mousePos = window.mapPixelToCoords({mouse->position.x, mouse->position.y});
 
                     if (state == AppState::MENU) {
@@ -263,18 +300,26 @@ int main () {
 
             // Obsługa klawiatury
 
-            if (const auto* key = event->getIf<sf::KeyPressed>()) {
+            if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
                 if (state == AppState::RACE) {
                     if (key->code == sf::Keyboard::Key::Space) {
                         paused = !paused;
                     }
-                    if (key->code == sf::Keyboard::Key::Right) {
-                        if (!currentRace.frames.empty()) {
-                            frameIndex = std::min(frameIndex + 20, currentRace.frames.size() - 1);
-                        }
+                    if (key->code == sf::Keyboard::Key::A) {
+                        std::cout << "LEFT" << std::endl;
+                        if (frameIndex > 100)
+                            frameIndex -= 100;
+                        else
+                            frameIndex = 0;
+                        clock.restart();
                     }
-                    if (key->code == sf::Keyboard::Key::Left) {
-                        frameIndex = (frameIndex >= 20) ? frameIndex - 20 : 0;
+                    if (key->code == sf::Keyboard::Key::D) {
+                        std::cout << "RIGHT" << std::endl;
+                        if (frameIndex + 100 < currentRace.frames.size())
+                            frameIndex += 100;
+                        else
+                            frameIndex = currentRace.frames.size() - 1;
+                        clock.restart();
                     }
                     if (key->code == sf::Keyboard::Key::R) {
                         frameIndex = 0;
@@ -282,6 +327,11 @@ int main () {
                     }
                     if (key->code == sf::Keyboard::Key::Escape) {
                         state = AppState::MENU;
+                    }
+                    if (key->code == sf::Keyboard::Key::F) {
+                        if (frameIndex + 500 < currentRace.frames.size())
+                            frameIndex += 500;
+                        clock.restart();
                     }
                 }
             }
@@ -320,7 +370,7 @@ int main () {
 
                 // Mierzenie czasu klatek
 
-                if (!paused && clock.getElapsedTime().asMilliseconds() > 80) {
+                if (!paused && clock.getElapsedTime().asMilliseconds() > 200) {
                     frameIndex++;
                     clock.restart();
                 }
@@ -365,19 +415,44 @@ int main () {
             float legendY = 40.f;
             float legendX = 1080.f;
 
+            int curLap = currentRace.frames[frameIndex].lap;
+            std::cout << "curLap=" << curLap << std::endl;  // ← dodaj
             for (auto& car : activeCars) {
+                if (car.abbr == "NOR") {  // sprawdź tylko NOR
+                    std::cout << "NOR pitLaps: ";
+                    for (auto& pl : car.pitLaps)
+                        std::cout << pl << " ";
+                    std::cout << std::endl;
+                }
+                bool inPit = std::find(car.pitLaps.begin(), car.pitLaps.end(), curLap) != car.pitLaps.end();
+
                 sf::RectangleShape dot({10.f, 10.f});
                 dot.setFillColor(car.shape.getFillColor());
                 dot.setPosition({legendX, legendY + 4.f});
                 window.draw(dot);
 
-                sf::Text drvLabel(font, car.driverCode, 11);
-                drvLabel.setFillColor(sf::Color::White);
+                std::string label = car.abbr + (inPit ? " PIT" : "");
+                sf::Text drvLabel(font, label, 11);
+                drvLabel.setFillColor(inPit ? sf::Color::Yellow : sf::Color::White);
                 drvLabel.setPosition({legendX + 15.f, legendY});
                 window.draw(drvLabel);
                 legendY += 16.f;
             }
+            if (frameIndex < currentRace.frames.size()) {
+                int currentStatus = currentRace.frames[frameIndex].status;
+                auto [flagColor, flagName] = getFlagInfo(currentStatus);
+                if (!flagName.empty()) {
+                    sf::RectangleShape flagBg({200.f, 30.f});
+                    flagBg.setFillColor(flagColor);
+                    flagBg.setPosition({490.f, 10.f});
+                    window.draw(flagBg);
 
+                    sf::Text flagText(font, flagName, 16);
+                    flagText.setFillColor(sf::Color::Black);
+                    flagText.setPosition({500.f, 14.f});
+                    window.draw(flagText);
+                }
+            }
             window.draw(hudText);
             window.draw(controlsText);
             window.draw(progressBg);
