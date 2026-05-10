@@ -312,13 +312,38 @@ def pobierz_dane(race, session_type, races_dict):
 
                 car_x = (raw_x - x_min) * scale + 80 + (1200 - 160 - (x_max - x_min)*scale) / 2
                 car_y = 700 - ((raw_y - y_min) * scale + 80 + (700 - 160 - (y_max - y_min)*scale) / 2)
+                pos_num = 99
+                try:
+                    drv_abbr = driver_info[drv]['abbr']
+                    drv_laps_pos = session.laps[session.laps['Driver'] == drv_abbr]
+                    on_lap = drv_laps_pos[drv_laps_pos['LapStartTime'].dt.total_seconds() <= t]
+                    if not on_lap.empty:
+                        pos_val = on_lap.iloc[-1]['Position']
+                        if not np.isnan(pos_val):
+                            pos_num = int(pos_val)
+                except Exception:
+                    pass
 
+                out = False
+                try:
+                    drv_abbr = driver_info[drv]['abbr']
+                    if hasattr(session, 'results') and session.results is not None:
+                        res = session.results[session.results['Abbreviation'] == drv_abbr]
+                        if not res.empty:
+                            finish_status = str(res.iloc[0].get('Status', ''))
+                            if finish_status not in ['Finished', '+1 Lap', '+2 Laps',
+                                                     '+3 Laps', '+4 Laps', '+5 Laps']:
+                                out = True
+                except Exception:
+                    pass
                 frame["cars"].append({
                     "drv":   drv,
                     "x":     round(car_x, 1),
                     "y":     round(car_y, 1),
                     "speed": 0,
                     "gear":  0,
+                    "pos": pos_num,
+                    "out": out,
                 })
 
             if i < 3:
