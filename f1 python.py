@@ -47,7 +47,7 @@ TEAM_COLORS = {
     'Aston Martin':     '#358C75',
     'Alpine':           '#FF87BC',
     'Williams':         '#64C4FF',
-    'RB':               '#6692FF',
+    'Racing Bulls':     '#6692FF',
     'Kick Sauber':      '#52E252',
     'Haas F1 Team':     '#B6BABD',
 }
@@ -188,91 +188,146 @@ def pobierz_dane(race, session_type, races_dict):
             info  = session.get_driver(drv)
             team  = info.get('TeamName', 'Unknown')
             color = TEAM_COLORS.get(team, '#FFFFFF')
+            abbr  = info.get('Abbreviation', drv)
+
+            # Pit stopy
+            try:
+                drv_laps = session.laps[session.laps['Driver'] == abbr]
+                pit_laps = drv_laps[drv_laps['PitInTime'].notna()]['LapNumber'].tolist()
+                pit_laps = [int(x) for x in pit_laps]
+            except Exception:
+                pit_laps = []
+
             driver_info[drv] = {
-                "abbr":      drv,
+                "abbr":      abbr,
                 "full_name": f"{info.get('FirstName','')} {info.get('LastName','')}".strip(),
                 "team":      team,
                 "color_hex": color,
                 "color_rgb": hex_to_rgb(color),
+                "pit_laps":  pit_laps,  # ← nowe
             }
         except Exception:
             driver_info[drv] = {
-                "abbr": drv, "full_name": drv, "team": "Unknown",
-                "color_hex": "#FFFFFF", "color_rgb": [255, 255, 255]
+                "abbr":      drv,
+                "full_name": drv,
+                "team":      "Unknown",
+                "color_hex": "#FFFFFF",
+                "color_rgb": [255, 255, 255],
+                "pit_laps":  [],
             }
-
     print(f"Kierowcy: {list(driver_info.keys())}")
 
-    # ── Klatki pozycji ───────────────────────────────────────────────────────
+    # ── Klatki pozycji ───────────────────────────────────────────────────────────
     print("Buduję klatki pozycji (to może chwilę potrwać)...")
-    frames           = []
-    all_laps         = session.laps
-    ref_laps         = all_laps[all_laps['Driver'] == drivers[0]].sort_values('LapStartTime')
-    sampled          = 0
-    total_frames_raw = 0
+    frames = []
 
-    for i, (_, lap) in enumerate(ref_laps.iterrows()):
-        try:
-            lap_tel = lap.get_telemetry()
-        except Exception:
-            continue
+    try:
+        pos = session.pos_data
+    except Exception as e:
+        print(f"Brak danych pozycyjnych: {e}")
+        pos = {}
 
-        for idx, row in lap_tel.iterrows():
-            total_frames_raw += 1
-            if total_frames_raw % SAMPLE_EVERY != 0:
+    print(f"Liczba kierowców w pos_data: {len(pos)}")
+
+    if pos is None or len(pos) == 0:
+        print("⚠️  Brak danych pozycyjnych dla tej sesji.")
+    else:
+# Znajdź kierowcę który ma najwięcej okrążeń w laps
+        ref_drv = drivers[0]
+        if ref_drv not in pos:
+            ref_drv = next(iter(pos))
+
+# Użyj skrótu do liczenia okrążeń
+        best_drv = ref_drv
+        best_count = 0
+        for d in drivers:
+            if d not in pos:
                 continue
+            abbr = driver_info.get(d, {}).get('abbr', d)
+            count = len(session.laps[session.laps['Driver'] == abbr])
+            if count > best_count:
+                best_count = count
+                best_drv = d
+        ref_drv = best_drv
 
-            frame_time = float(lap['LapStartTime'].total_seconds()) + float(row['Time'].total_seconds())
-            frame = {
-                "t":    round(frame_time, 2),
-                "lap":  int(lap['LapNumber']) if not np.isnan(lap['LapNumber']) else 0,
-                "cars": []
-            }
+        ref_df = pos[ref_drv].copy()
+        ref_df = ref_df.iloc[::SAMPLE_EVERY].copy().reset_index(drop=True)
+        print(f"Ref driver: {ref_drv}, klatek: {len(ref_df)}")
+
+
+        pos_times = {}
+        for drv in drivers:
+            if drv in pos:
+                pos_times[drv] = pos[drv]['SessionTime'].dt.total_seconds().values
+        try:
+            track_status_data = session.track_status
+            ts_times = track_status_data['Time'].dt.total_seconds().values
+            ts_status = track_status_data['Status'].values
+        except Exception:
+            track_status_data = None
+            ts_times = None
+            ts_status = None
+
+        for i, (_, ref_row) in enumerate(ref_df.iterrows()):
+            t = float(ref_row['SessionTime'].total_seconds())
+            lap_num = 0
+            try:
+                ref_abbr = driver_info[ref_drv]['abbr']  # np. '81' → 'BEA'
+                drv_laps = session.laps[session.laps['Driver'] == ref_abbr].sort_values('LapStartTime')
+                for _, lap_row in drv_laps.iterrows():
+                    lst = lap_row['LapStartTime']
+                    if hasattr(lst, 'total_seconds'):
+                        lst_sec = lst.total_seconds()
+                    else:
+                        lst_sec = float(lst) / 1e9
+                    if lst_sec <= t:
+                        lap_num = int(lap_row['LapNumber'])
+                    else:
+                        break
+            except Exception as e:
+                print(f"Błąd lap_num: {e}")
+
+            status = 1
+            try:
+                if ts_times is not None:
+                    idx_s = int(np.argmin(np.abs(ts_times - t)))
+                    status = int(ts_status[idx_s])
+            except Exception:
+                pass
+
+            frame = {"t": round(t, 2), "lap": lap_num, "status": status, "cars": []}
 
             for drv in drivers:
-                try:
-                    drv_laps = all_laps[all_laps['Driver'] == drv]
-                    on_lap   = drv_laps[drv_laps['LapStartTime'].dt.total_seconds() <= frame_time]
-                    if on_lap.empty:
-                        continue
-                    cur_lap  = on_lap.iloc[-1]
-                    drv_tel  = cur_lap.get_telemetry()
+                if drv not in pos or drv not in pos_times:
+                    continue
+                times_arr = pos_times[drv]
+                idx = int(np.argmin(np.abs(times_arr - t)))
+                row = pos[drv].iloc[idx]
 
-                    elapsed    = frame_time - float(cur_lap['LapStartTime'].total_seconds())
-                    elapsed_td = (drv_tel['Time'].dt.total_seconds()
-                                  if hasattr(drv_tel['Time'], 'dt')
-                                  else drv_tel['Time'].apply(lambda t: t.total_seconds()))
-                    closest  = (elapsed_td - elapsed).abs().idxmin()
-                    drv_row  = drv_tel.loc[closest]
+                raw_x = float(row['X'])
+                raw_y = float(row['Y'])
 
-                    raw_car_x = float(drv_row['X'])
-                    raw_car_y = float(drv_row['Y'])
+                if np.isnan(raw_x) or np.isnan(raw_y) or (raw_x == 0.0 and raw_y == 0.0):
+                    continue
 
-                    car_x = (raw_car_x - x_min) * scale + 80 + (1200 - 160 - (x_max - x_min)*scale) / 2
-                    car_y = 700 - ((raw_car_y - y_min) * scale + 80 + (700 - 160 - (y_max - y_min)*scale) / 2)
+                car_x = (raw_x - x_min) * scale + 80 + (1200 - 160 - (x_max - x_min)*scale) / 2
+                car_y = 700 - ((raw_y - y_min) * scale + 80 + (700 - 160 - (y_max - y_min)*scale) / 2)
 
-                    frame["cars"].append({
-                        "drv":   drv,
-                        "x":     round(car_x, 1),
-                        "y":     round(car_y, 1),
-                        "speed": int(drv_row.get('Speed', 0)) if 'Speed' in drv_row else 0,
-                        "gear":  int(drv_row.get('nGear', 0)) if 'nGear' in drv_row else 0,
-                    })
-                except Exception:
-                    pass
+                frame["cars"].append({
+                    "drv":   drv,
+                    "x":     round(car_x, 1),
+                    "y":     round(car_y, 1),
+                    "speed": 0,
+                    "gear":  0,
+                })
+
+            if i < 3:
+                print(f"Klatka {i}: t={t:.1f}s, samochodów={len(frame['cars'])}")
 
             if frame["cars"]:
                 frames.append(frame)
-                sampled += 1
 
-        if sampled >= 3000:
-            print(f"  Osiągnięto limit 3000 klatek po okrążeniu {i+1}")
-            break
-
-        print(f"  Okrążenie {i+1}/{len(ref_laps)}: {sampled} klatek")
-
-    print(f"\nLiczba wyeksportowanych klatek: {len(frames)}")
-
+        print(f"\nLiczba wyeksportowanych klatek: {len(frames)}")
     # ── Dodaj do słownika ────────────────────────────────────────────────────
     races_dict[race_key] = {
         "event":         event_name,
