@@ -102,8 +102,10 @@ std::vector <F1Car> buildCars(const json& driversJson, const sf::Font& font) {
         F1Car car(code, color, font);
         car.abbr = info.value("abbr", code);
         car.label.setString(car.abbr);
-        for (auto& pl : info["pit_laps"])
-            car.pitLaps.push_back(pl.get<int>());
+        if (info.contains("pit_laps")) {
+            for (auto& pl : info["pit_laps"])
+                car.pitLaps.push_back(pl.get<int>());
+        }
         cars.push_back(std::move(car));
 
     }
