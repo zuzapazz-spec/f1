@@ -418,7 +418,7 @@ int main () {
             float legendX = 1080.f;
 
             int curLap = (frameIndex < currentRace.frames.size()) ? currentRace.frames[frameIndex].lap : currentRace.frames.back().lap;
-            //std::cout << "curLap=" << curLap << std::endl;
+            std::cout << "curLap=" << curLap << std::endl;
             for (auto& car : activeCars) {
                 if (car.abbr == "NOR") {  // sprawdź tylko NOR
                     std::cout << "NOR pitLaps: ";
