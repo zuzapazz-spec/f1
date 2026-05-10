@@ -1,3 +1,4 @@
 races_all.json
 cmake-build-debug/
 *.json
+.fastf1_cache/
