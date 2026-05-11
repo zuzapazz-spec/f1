@@ -547,16 +547,26 @@ int main () {
 
         // Rysowanie toru
         else if (state == AppState::RACE) {
+            sf::View trackView(sf::FloatRect({0.f, 0.f}, {1200.f, 700.f}));
+            trackView.setCenter({700.f, 350.f});
+            trackView.zoom(1.15f);
+
+            window.setView(trackView);
             window.draw(trackline);
 
             // Rysowanie bolidów
             for (auto& car : activeCars) {
-                car.draw(window);
+                auto pos = car.shape.getPosition();
+                if (pos.x != 0.f && pos.y != 0.f) {
+                    car.draw(window);
+                }
             }
+
+            window.setView(window.getDefaultView());
 
             // Legenda i tabela wyników po prawej stronie
             float legendY = 40.f;
-            float legendX = 1080.f;
+            float legendX = 1120.f;
             int curLap = (frameIndex < currentRace.frames.size()) ? currentRace.frames[frameIndex].lap : currentRace.frames.back().lap;
 
             // // Sortowanie kierowców według pozycji w wyścigu
