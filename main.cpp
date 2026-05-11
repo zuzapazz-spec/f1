@@ -427,7 +427,7 @@ int main () {
             float legendY = 40.f;
             float legendX = 1080.f;
 
-            int curLap = currentRace.frames[frameIndex].lap;
+            int curLap = (frameIndex < currentRace.frames.size()) ? currentRace.frames[frameIndex].lap : currentRace.frames.back().lap;
 
             // Posortuj według pozycji
             std::vector<F1Car*> sorted;
