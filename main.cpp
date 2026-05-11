@@ -511,7 +511,10 @@ int main () {
                     for (auto& car : activeCars) {
                         if (car.driverCode == carData.driver) {
                             car.updatePosition(carData.x, carData.y);
-                            car.position = carData.position;
+
+                            if (carData.position < 99) {
+                                car.position = carData.position;
+                            }
                             car.isOut = carData.isOut;
                         }
                     }
@@ -592,7 +595,18 @@ int main () {
                 window.draw(dot);
 
                 // Tekst w legendzie
-                std::string posStr = (car->position < 99) ? std::to_string(car->position) + " " : "";
+                std::string posStr = "";
+                if (car->position < 99) {
+                    posStr = std::to_string(car->position) + ". ";
+                } else {
+                    for (size_t i=0; i<sorted.size(); i++) {
+                        if (sorted[i]->driverCode == car->driverCode) {
+                            posStr = std::to_string(i+1) + ". ";
+                            break;
+                        }
+                    }
+                }
+
                 std::string label = posStr + car->abbr + (inPit ? " PIT" : "") + (isOut? " OUT" : "");
 
                 sf::Color textColor = sf::Color::White;
@@ -600,7 +614,6 @@ int main () {
                 else if (inPit) textColor = sf::Color::Yellow;
                 sf::Text drvLabel(font, label, 13);
                 drvLabel.setFillColor(textColor);
-
                 drvLabel.setPosition({legendX + 20.f, legendY});
                 window.draw(drvLabel);
                 legendY += 20.f;
