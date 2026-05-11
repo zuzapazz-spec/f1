@@ -397,12 +397,12 @@ int main () {
     controlsText.setPosition({985.f, 580.f});
     controlsText.setLineSpacing(1.1f);
 
-    sf::RectangleShape progressBg({1200.f, 6.f});
-    progressBg.setPosition({0.f, 694.f});
+    sf::RectangleShape progressBg({1200.f, 12.f});
+    progressBg.setPosition({0.f, 688.f});
     progressBg.setFillColor(sf::Color(50, 50, 50));
 
-    sf::RectangleShape progressFill({0.f, 6.f});
-    progressFill.setPosition({0.f, 694.f});
+    sf::RectangleShape progressFill({0.f, 12.f});
+    progressFill.setPosition({0.f, 688.f});
     progressFill.setFillColor(sf::Color(220, 0, 0));
 
     // GŁÓWNA PĘTLA PROGRAMU
@@ -533,7 +533,7 @@ int main () {
 
                 // Aktualizacja paska postępu na dole ekranu
                 float progress = (float)frameIndex / (float)currentRace.frames.size();
-                progressFill.setSize({1200.f * progress, 6.f});
+                progressFill.setSize({1200.f * progress, 12.f});
             }
         }
 
