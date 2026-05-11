@@ -18,6 +18,9 @@ struct CarFrame {
     float x, y;
     int speed;
     int gear;
+    int pos =99;
+    bool out = false;
+
 };
 
 struct Frame {
@@ -43,6 +46,9 @@ class F1Car {
     sf::Text label;
     std::string abbr;
     std::vector<int> pitLaps;
+    int pos = 99;
+    bool out = false;
+    int outFromLap = 999;
 
 
     F1Car(std::string code, sf::Color color, const sf::Font& font ):driverCode(code), label(font, code, 12) {
@@ -87,6 +93,8 @@ RaceData parseRace(const json& raceJson) {
             cf.y = c["y"];
             cf.speed = c.value("speed", 0);
             cf.gear = c.value("gear", 0);
+            cf.pos = c.value("pos", 99);
+            cf.out = c.value("out", false);
             frame.cars.push_back(cf);
         }
         rd.frames.push_back(frame);
@@ -105,6 +113,7 @@ std::vector <F1Car> buildCars(const json& driversJson, const sf::Font& font) {
         if (info.contains("pit_laps")) {
             for (auto& pl : info["pit_laps"])
                 car.pitLaps.push_back(pl.get<int>());
+                car.outFromLap = info.value("out_from_lap", 999);
         }
         cars.push_back(std::move(car));
 
@@ -366,6 +375,8 @@ int main () {
                     for (auto& car : activeCars) {
                         if (car.driverCode == carData.driver) {
                             car.updatePosition(carData.x, carData.y);
+                            car.pos = carData.pos;
+                            car.out = carData.out;
                         }
                     }
                 }
@@ -412,30 +423,36 @@ int main () {
                 car.draw(window);
             }
 
-            // Wyświetlanie legendy kierowców
 
             float legendY = 40.f;
             float legendX = 1080.f;
 
-            int curLap = (frameIndex < currentRace.frames.size()) ? currentRace.frames[frameIndex].lap : currentRace.frames.back().lap;
-            std::cout << "curLap=" << curLap << std::endl;
-            for (auto& car : activeCars) {
-                if (car.abbr == "NOR") {  // sprawdź tylko NOR
-                    std::cout << "NOR pitLaps: ";
-                    for (auto& pl : car.pitLaps)
-                        std::cout << pl << " ";
-                    std::cout << std::endl;
-                }
-                bool inPit = std::find(car.pitLaps.begin(), car.pitLaps.end(), curLap) != car.pitLaps.end();
+            int curLap = currentRace.frames[frameIndex].lap;
+
+            // Posortuj według pozycji
+            std::vector<F1Car*> sorted;
+            for (auto& car : activeCars)
+                sorted.push_back(&car);
+            std::sort(sorted.begin(), sorted.end(), [](F1Car* a, F1Car* b) {
+                return a->pos < b->pos;
+            });
+
+            for (auto* car : sorted) {
+                bool inPit = std::find(car->pitLaps.begin(), car->pitLaps.end(), curLap) != car->pitLaps.end();
 
                 sf::RectangleShape dot({10.f, 10.f});
-                dot.setFillColor(car.shape.getFillColor());
+                dot.setFillColor(car->shape.getFillColor());
                 dot.setPosition({legendX, legendY + 4.f});
                 window.draw(dot);
 
-                std::string label = car.abbr + (inPit ? " PIT" : "");
+                bool isOut = curLap >= car->outFromLap;
+                std::string posStr = (car->pos < 99) ? std::to_string(car->pos) + " " : "";
+                std::string label = posStr + car->abbr + (inPit ? " PIT" : "") + (isOut? " OUT" : "");
+                sf::Color textColor = sf::Color::White;
+                if (isOut)  textColor = sf::Color::Red;
+                else if (inPit) textColor = sf::Color::Yellow;
                 sf::Text drvLabel(font, label, 11);
-                drvLabel.setFillColor(inPit ? sf::Color::Yellow : sf::Color::White);
+                drvLabel.setFillColor(textColor);
                 drvLabel.setPosition({legendX + 15.f, legendY});
                 window.draw(drvLabel);
                 legendY += 16.f;
