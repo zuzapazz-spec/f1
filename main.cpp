@@ -375,9 +375,27 @@ int main () {
     hudText.setFillColor(sf::Color::White);
     hudText.setPosition({10.f, 10.f});
 
-    sf::Text controlsText(font, "SPACJA:pauza    A/D:przewijanie    F:fast forward    ESC:menu"  , 13);
+    sf::RectangleShape controlsBg({210.f, 130.f});
+    controlsBg.setFillColor(sf::Color(30, 30, 30, 200));
+    controlsBg.setOutlineThickness(1.f);
+    controlsBg.setOutlineColor(sf::Color(100, 100, 100));
+    controlsBg.setPosition({975.f, 555.f});
+
+    sf::Text controlsHeader(font, "STEROWANIE:", 14);
+    controlsHeader.setStyle(sf::Text::Bold);
+    controlsHeader.setFillColor(sf::Color::White);
+    controlsHeader.setPosition({985.f, 560.f});
+
+    sf::Text controlsText(font,
+        "SPACJA  -  Pauza / Wznowienie\n"
+        "A  -  Przewijanie\n"
+        "D  -  Cofanie\n"
+        "F  -  Szybkie przewijanie\n"
+        "R  -  Reset\n"
+        "ESC  -  Powrot do menu", 13);
     controlsText.setFillColor(sf::Color(120, 120, 120));
-    controlsText.setPosition({10.f, 678.f});
+    controlsText.setPosition({985.f, 580.f});
+    controlsText.setLineSpacing(1.1f);
 
     sf::RectangleShape progressBg({1200.f, 6.f});
     progressBg.setPosition({0.f, 694.f});
@@ -593,6 +611,8 @@ int main () {
             }
 
             window.draw(hudText);
+            window.draw(controlsBg);
+            window.draw(controlsHeader);
             window.draw(controlsText);
             window.draw(progressBg);
             window.draw(progressFill);
