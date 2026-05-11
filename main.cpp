@@ -379,12 +379,12 @@ int main () {
     controlsBg.setFillColor(sf::Color(30, 30, 30, 200));
     controlsBg.setOutlineThickness(1.f);
     controlsBg.setOutlineColor(sf::Color(100, 100, 100));
-    controlsBg.setPosition({975.f, 555.f});
+    controlsBg.setPosition({975.f, 545.f});
 
     sf::Text controlsHeader(font, "STEROWANIE:", 14);
     controlsHeader.setStyle(sf::Text::Bold);
     controlsHeader.setFillColor(sf::Color::White);
-    controlsHeader.setPosition({985.f, 560.f});
+    controlsHeader.setPosition({985.f, 550.f});
 
     sf::Text controlsText(font,
         "SPACJA  -  Pauza / Wznowienie\n"
@@ -394,7 +394,7 @@ int main () {
         "R  -  Reset\n"
         "ESC  -  Powrot do menu", 13);
     controlsText.setFillColor(sf::Color(120, 120, 120));
-    controlsText.setPosition({985.f, 580.f});
+    controlsText.setPosition({985.f, 570.f});
     controlsText.setLineSpacing(1.1f);
 
     sf::RectangleShape progressBg({1200.f, 12.f});
@@ -570,7 +570,7 @@ int main () {
 
             // Legenda i tabela wyników po prawej stronie
             float legendY = 50.f;
-            float legendX = 1080.f;
+            float legendX = 1060.f;
             int curLap = (frameIndex < currentRace.frames.size()) ? currentRace.frames[frameIndex].lap : currentRace.frames.back().lap;
 
             // Sortowanie kierowców według pozycji w wyścigu
@@ -612,14 +612,24 @@ int main () {
                 auto [flagColor, flagName] = getFlagInfo(currentStatus);
 
                 if (!flagName.empty()) {
-                    sf::RectangleShape flagBg({200.f, 30.f});
+                    sf::RectangleShape flagBg({140.f, 30.f});
                     flagBg.setFillColor(flagColor);
-                    flagBg.setPosition({490.f, 10.f});
+
+                    flagBg.setOutlineThickness(2.f);
+                    flagBg.setOutlineColor(sf::Color::Black);
+
+                    flagBg.setPosition({410.f, 15.f});
                     window.draw(flagBg);
 
-                    sf::Text flagText(font, flagName, 16);
+                    sf::Text flagText(font, flagName, 13);
+                    flagText.setStyle(sf::Text::Bold);
                     flagText.setFillColor(sf::Color::Black);
-                    flagText.setPosition({500.f, 14.f});
+
+                    auto textBounds = flagText.getLocalBounds();
+                    flagText.setPosition({
+                        410.f + (140.f - textBounds.size.x) / 2.f,
+                        15.f + (30.f - textBounds.size.y) / 2.f - 4.f
+                    });
                     window.draw(flagText);
                 }
             }
