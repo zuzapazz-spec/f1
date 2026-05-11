@@ -291,6 +291,16 @@ std::pair<sf::Color, std::string> getFlagInfo(int status) {
     }
 }
 
+std::string formatTime(float seconds) {
+    int total = static_cast<int>(seconds);
+    int h = total / 3600;
+    int m = (total % 3600) / 60;
+    int s = total % 60;
+    char buffer[10];
+    sprintf(buffer, "%02d:%02d:%02d", h, m, s);
+    return std::string(buffer);
+}
+
 int main () {
 
     // KONFIGURACJA OKNA I ZASOBÓW
@@ -354,7 +364,7 @@ int main () {
         titleText.setPosition({(1200.f - b.size.x)/ 2.f, 40.f});
     }
 
-    sf::Text subtitleText(font, "Kliknij, aby odtworzyc replay", 16);
+    sf::Text subtitleText(font, "Kliknij, aby odtworzyc", 16);
     subtitleText.setFillColor(sf::Color(150, 150, 150));
     {
         auto b= subtitleText.getLocalBounds();
@@ -497,7 +507,7 @@ int main () {
 
                 // Aktualizacja napisów HUD
                 std::string pauseLabel = isPaused ? " [PAUZA]" : "";
-                hudText.setString(currentRace.event + " | Lap: " + std::to_string(frame.lap) + " | Time: " + std::to_string((int)frame.time) + "s" + pauseLabel);
+                hudText.setString(currentRace.event + " | Lap: " + std::to_string(frame.lap) + " | Time: " + formatTime(frame.time) + "s" + pauseLabel);
 
                 // Aktualizacja paska postępu na dole ekranu
                 float progress = (float)frameIndex / (float)currentRace.frames.size();
