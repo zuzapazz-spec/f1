@@ -565,8 +565,8 @@ int main () {
             window.setView(window.getDefaultView());
 
             // Legenda i tabela wyników po prawej stronie
-            float legendY = 40.f;
-            float legendX = 1120.f;
+            float legendY = 50.f;
+            float legendX = 1080.f;
             int curLap = (frameIndex < currentRace.frames.size()) ? currentRace.frames[frameIndex].lap : currentRace.frames.back().lap;
 
             // // Sortowanie kierowców według pozycji w wyścigu
@@ -582,9 +582,9 @@ int main () {
                 bool isOut = curLap >= car->outFromLap;
 
                 // Kwadracik z kolorem zespołu
-                sf::RectangleShape dot({10.f, 10.f});
+                sf::RectangleShape dot({12.f, 12.f});
                 dot.setFillColor(car->shape.getFillColor());
-                dot.setPosition({legendX, legendY + 4.f});
+                dot.setPosition({legendX, legendY + 3.f});
                 window.draw(dot);
 
                 // Tekst w legendzie
@@ -594,12 +594,12 @@ int main () {
                 sf::Color textColor = sf::Color::White;
                 if (isOut)  textColor = sf::Color::Red;
                 else if (inPit) textColor = sf::Color::Yellow;
-                sf::Text drvLabel(font, label, 11);
+                sf::Text drvLabel(font, label, 13);
                 drvLabel.setFillColor(textColor);
 
-                drvLabel.setPosition({legendX + 15.f, legendY});
+                drvLabel.setPosition({legendX + 20.f, legendY});
                 window.draw(drvLabel);
-                legendY += 16.f;
+                legendY += 20.f;
             }
 
             // Wyświetlanie flag
