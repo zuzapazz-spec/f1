@@ -525,7 +525,11 @@ int main () {
 
                 // Aktualizacja napisów HUD
                 std::string pauseLabel = isPaused ? " [PAUZA]" : "";
-                hudText.setString(currentRace.event + " | Lap: " + std::to_string(frame.lap) + " | Time: " + formatTime(frame.time) + "s" + pauseLabel);
+                hudText.setString(currentRace.event + pauseLabel);
+                std::string subStatus = "LAP: " + std::to_string(frame.lap) + "  |  TIME: " + formatTime(frame.time);
+                subtitleText.setString(subStatus);
+                subtitleText.setCharacterSize(14);
+                subtitleText.setFillColor(sf::Color(200, 200, 200));
 
                 // Aktualizacja paska postępu na dole ekranu
                 float progress = (float)frameIndex / (float)currentRace.frames.size();
@@ -569,7 +573,7 @@ int main () {
             float legendX = 1080.f;
             int curLap = (frameIndex < currentRace.frames.size()) ? currentRace.frames[frameIndex].lap : currentRace.frames.back().lap;
 
-            // // Sortowanie kierowców według pozycji w wyścigu
+            // Sortowanie kierowców według pozycji w wyścigu
             std::vector<F1Car*> sorted;
             for (auto& car : activeCars)
                 sorted.push_back(&car);
@@ -620,7 +624,25 @@ int main () {
                 }
             }
 
+            // Panel HUD
+
+            sf::RectangleShape headerBg({380.f, 70.f});
+            headerBg.setFillColor(sf::Color(20, 20, 20, 180));
+            headerBg.setOutlineThickness(2.f);
+            headerBg.setOutlineColor(sf::Color(220, 0, 0));
+            headerBg.setPosition({15.f, 15.f});
+            window.draw(headerBg);
+
+            hudText.setCharacterSize(19);
+            hudText.setStyle(sf::Text::Bold);
+            hudText.setPosition({30.f, 22.f});
             window.draw(hudText);
+
+            subtitleText.setCharacterSize(14);
+            subtitleText.setFillColor(sf::Color(180, 180, 180));
+            subtitleText.setPosition({30.f, 55.f});
+            window.draw(subtitleText);
+
             window.draw(controlsBg);
             window.draw(controlsHeader);
             window.draw(controlsText);
