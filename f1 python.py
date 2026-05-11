@@ -198,6 +198,20 @@ def pobierz_dane(race, session_type, races_dict):
             except Exception:
                 pit_laps = []
 
+            out_from_lap = 999
+            try:
+                if hasattr(session, 'results') and session.results is not None:
+                    res = session.results[session.results['Abbreviation'] == abbr]
+                    if not res.empty:
+                        finish_status = str(res.iloc[0].get('Status', ''))
+                        if finish_status not in ['Finished', '+1 Lap', '+2 Laps',
+                                                 '+3 Laps', '+4 Laps', '+5 Laps']:
+                            drv_laps_out = session.laps[session.laps['Driver'] == abbr]
+                            if not drv_laps_out.empty:
+                                out_from_lap = int(drv_laps_out.iloc[-1]['LapNumber'])
+            except Exception:
+                pass
+
             driver_info[drv] = {
                 "abbr":      abbr,
                 "full_name": f"{info.get('FirstName','')} {info.get('LastName','')}".strip(),
@@ -205,6 +219,7 @@ def pobierz_dane(race, session_type, races_dict):
                 "color_hex": color,
                 "color_rgb": hex_to_rgb(color),
                 "pit_laps":  pit_laps,  # ← nowe
+                "out_from_lap": out_from_lap,
             }
         except Exception:
             driver_info[drv] = {
@@ -214,6 +229,7 @@ def pobierz_dane(race, session_type, races_dict):
                 "color_hex": "#FFFFFF",
                 "color_rgb": [255, 255, 255],
                 "pit_laps":  [],
+                "out_from_laps": 999,
             }
     print(f"Kierowcy: {list(driver_info.keys())}")
 
@@ -323,19 +339,6 @@ def pobierz_dane(race, session_type, races_dict):
                             pos_num = int(pos_val)
                 except Exception:
                     pass
-
-                out = False
-                try:
-                    drv_abbr = driver_info[drv]['abbr']
-                    if hasattr(session, 'results') and session.results is not None:
-                        res = session.results[session.results['Abbreviation'] == drv_abbr]
-                        if not res.empty:
-                            finish_status = str(res.iloc[0].get('Status', ''))
-                            if finish_status not in ['Finished', '+1 Lap', '+2 Laps',
-                                                     '+3 Laps', '+4 Laps', '+5 Laps']:
-                                out = True
-                except Exception:
-                    pass
                 frame["cars"].append({
                     "drv":   drv,
                     "x":     round(car_x, 1),
@@ -343,7 +346,7 @@ def pobierz_dane(race, session_type, races_dict):
                     "speed": 0,
                     "gear":  0,
                     "pos": pos_num,
-                    "out": out,
+
                 })
 
             if i < 3:
