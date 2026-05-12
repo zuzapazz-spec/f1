@@ -312,7 +312,6 @@ std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, c
             startY + i * (buttonHeight + gap) + (buttonHeight - textBounds.size.y) / 2.f - 4.f
         });
 
-
         buttons.push_back(btn);
     }
     return buttons;
