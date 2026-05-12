@@ -215,6 +215,47 @@ sf::VertexArray buildTrack(const std::vector<TrackPoint>& points) {
 }
 
 /**
+ * @brief Buduje wizualną szachownicę linii mety.
+ * @param points Wektor punktów (TrackPoint) definiujących przebieg toru.
+ * @return Zwraca sf::VertexArray tworzący czarno-białą szachownicę.
+ */
+sf::VertexArray buildFinishLine(const std::vector<TrackPoint>& points) {
+    sf::VertexArray line(sf::PrimitiveType::Triangles);
+    if (points.size() < 2) return line;
+
+    float dx = points[1].x - points[0].x;
+    float dy = points[1].y - points[0].y;
+    float len = std::sqrt(dx * dx + dy * dy);
+    if (len == 0) return line;
+
+    sf::Vector2f nx(-dy / len * 12.f, dx / len * 12.f);
+    sf::Vector2f thick(dx / len * 2.f, dy / len * 2.f);
+    sf::Vector2f left = {points[0].x + nx.x, points[0].y + nx.y};
+    sf::Vector2f right = {points[0].x - nx.x, points[0].y - nx.y};
+
+    int cols = 10;
+    int rows = 2;
+
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            sf::Vector2f p1 = left + (float)c / (float)cols * (right - left) + (float)r * thick;
+            sf::Vector2f p2 = left + (float)(c+1) / (float)cols * (right - left) + (float)r * thick;
+
+            sf::Color col = ((c+r) % 2 == 0) ? sf::Color::White : sf::Color::Black;
+
+            line.append({p1, col});
+            line.append({p2, col});
+            line.append({p1 + thick, col});
+
+            line.append({p2, col});
+            line.append({p1 + thick, col});
+            line.append({p2 + thick, col});
+        }
+    }
+    return line;
+}
+
+/**
  * @brief Interkatywny przycisk w menu wyboru wyścigu.
  */
 struct MenuButton {
@@ -349,6 +390,7 @@ int main () {
     RaceData currentRace;
     std::vector<F1Car> activeCars;
     sf::VertexArray trackline;
+    sf::VertexArray finishLine;
     size_t frameIndex = 0;
     bool isPaused = false;
     sf::Clock clock;
@@ -428,6 +470,7 @@ int main () {
                                 currentRace = parseRace(raceJson);
                                 activeCars = buildCars(raceJson["drivers"], font);
                                 trackline = buildTrack(currentRace.trackPoints);
+                                finishLine = buildFinishLine(currentRace.trackPoints);
 
                                 frameIndex = 0;
                                 isPaused = false;
@@ -580,6 +623,7 @@ int main () {
 
             window.setView(trackView);
             window.draw(trackline);
+            window.draw(finishLine);
 
             // Rysowanie bolidów
             for (auto& car : activeCars) {
