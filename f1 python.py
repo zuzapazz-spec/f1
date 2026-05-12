@@ -287,7 +287,6 @@ def fetch_session_data(race, session_type, races_dict):
                 "pit_laps":  [],
                 "out_from_lap": 999,
             }
-    print(f"Kierowcy: {list(driver_info.keys())}")
 
     # 3. KLATKI POZYCJI
 
@@ -300,7 +299,7 @@ def fetch_session_data(race, session_type, races_dict):
         print(f"Brak danych pozycyjnych: {e}")
         pos = {}
 
-    print(f"Liczba kierowców w pos_data: {len(pos)}")
+    print(f"Liczba kierowców: {len(pos)}")
 
     if pos is None or len(pos) == 0:
         print("⚠️  Brak danych pozycyjnych dla tej sesji.")
