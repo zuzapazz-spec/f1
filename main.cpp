@@ -283,11 +283,11 @@ std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, c
     float btnW = 500.f;
     float btnH = 32.f;
     float gap = 5.f;
-    float startY = 120.f;
+    float startY = 110.f;
 
     float col1X = (1200.f /2.f - btnW - 20.f) / 2.f + 20.f;
     float col2X = 1200.f / 2.f + (1200.f / 2.f - btnW - 20.f) / 2.f;
-    int colSize = 13;
+    int colSize = 15;
 
     for (size_t i = 0; i < keys.size(); i++) {
         MenuButton btn(font);
