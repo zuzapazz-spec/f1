@@ -280,10 +280,10 @@ std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, c
     std::vector<MenuButton> buttons;
 
     // Ustawienia układu menu
-    const float startY = 120.f;
+    const float startY = 100.f;
     const float buttonWidth = 700.f;
-    const float buttonHeight = 42.f;
-    const float gap = 10.f;
+    const float buttonHeight = 18.f;
+    const float gap = 2.f;
     const float startX = (1200.f - buttonWidth) / 2.f;
 
     for (size_t i = 0; i < keys.size(); i++) {
@@ -302,7 +302,7 @@ std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, c
         for (char& c : label) if (c=='-') c = ' ';
 
         btn.text.setString(label);
-        btn.text.setCharacterSize(18);
+        btn.text.setCharacterSize(14);
         btn.text.setFillColor(sf::Color::White);
 
         // Centrowanie napisu
@@ -311,6 +311,7 @@ std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, c
             startX + (buttonWidth - textBounds.size.x)/2.f,
             startY + i * (buttonHeight + gap) + (buttonHeight - textBounds.size.y) / 2.f - 4.f
         });
+
 
         buttons.push_back(btn);
     }
