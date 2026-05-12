@@ -473,7 +473,17 @@ int main () {
                     }
 
                     // Powrót do menu
-                    if (key->code == sf::Keyboard::Key::Escape) state = AppState::MENU;
+                    if (key->code == sf::Keyboard::Key::Escape) {
+                        state = AppState::MENU;
+
+                        hudText.setString("");
+
+                        subtitleText.setString("Kliknij, aby odtworzyc");
+                        subtitleText.setCharacterSize(16);
+                        subtitleText.setFillColor(sf::Color(150, 150, 150));
+
+                        window.setView(window.getDefaultView());
+                    }
 
                     // Szybkie przewijanie
                     if (key->code == sf::Keyboard::Key::F) {
@@ -543,7 +553,17 @@ int main () {
         // 3. RYSOWANIE
 
         if (state == AppState::MENU) {
+            window.setView(window.getDefaultView());
             window.draw(titleText);
+
+            subtitleText.setOrigin({ 0.f, 0.f });
+
+            auto bounds = subtitleText.getLocalBounds();
+
+            float centerX = (1200.f - bounds.size.x) / 2.f;
+
+            subtitleText.setPosition({ centerX, 85.f });
+
             window.draw(subtitleText);
 
             for (auto& button : menuButtons) {
