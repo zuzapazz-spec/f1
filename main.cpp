@@ -129,7 +129,7 @@ RaceData parseRace(const json& raceJson) {
         // Wczytywanie danych o każdym bolidzie w danej klatce
         for (auto& c: f["cars"]) {
             CarFrame cf;
-            cf.driver = c["drv"];
+            cf.driver = c["driver"];
             cf.x = c["x"];
             cf.y = c["y"];
             cf.speed = c.value("speed", 0);
