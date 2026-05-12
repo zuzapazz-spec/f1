@@ -20,3 +20,4 @@ add_custom_command(TARGET f1 POST_BUILD
         ${CMAKE_SOURCE_DIR}/races_all.json
         $<TARGET_FILE_DIR:f1>/races_all.json
 )
+configure_file(${CMAKE_SOURCE_DIR}/logo.png ${CMAKE_BINARY_DIR}/logo.png COPYONLY)
