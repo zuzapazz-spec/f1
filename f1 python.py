@@ -52,33 +52,61 @@ TEAM_COLORS = {
     'Haas F1 Team':     '#B6BABD',
 }
 
-
-def hex_to_rgb(hex_color):
+def convert_hex_to_rgb(hex_color: str) -> list[int]:
+    """
+    Konwertuje kolor zapisany w formacie szesnastkowym (HEX) na listę wartości RGB.
+    :param hex_color: Ciąg znaków reprezentujący kolor.
+    :return: Zwraca listę trzech liczb całkowitych [R, G, B] w zakresie 0-255.
+    """
     hex_color = hex_color.lstrip('#')
     return [int(hex_color[i:i+2], 16) for i in (0, 2, 4)]
 
+def normalize_track_coordinates(x_coords, y_coords, window_width=1200, window_height=700, margin=80):
+    """
+    Przeskalowuje surowe współrzędne GPS bolidów na współrzędne ekranowe okna SFML.
+    :param x_coords: Tablica numpy ze współrzędnymi X.
+    :param y_coords: Tablica numpy ze współrzędnymi Y.
+    :param window_width: Szerokość okna aplikacji.
+    :param window_height: Wysokość okna aplikacji.
+    :param margin: Margines od krawędzi okna w pikselach.
+    :return: Zwraca krotkę (skalowane_x, skalowane_y, x_min, x_max, y_min, y_max, skala).
+    """
 
-def normalize_track(x_arr, y_arr, target_width=1200, target_height=700, padding=80):
-    x_min, x_max = x_arr.min(), x_arr.max()
-    y_min, y_max = y_arr.min(), y_arr.max()
+    # Wyznaczenie ekstremów toru
+    x_min, x_max = x_coords.min(), x_coords.max()
+    y_min, y_max = y_coords.min(), y_coords.max()
+
+    # Obliczenie skali
     scale = min(
-        (target_width  - 2 * padding) / (x_max - x_min),
-        (target_height - 2 * padding) / (y_max - y_min)
+        (window_width  - 2 * margin) / (x_max - x_min),
+        (window_height - 2 * margin) / (y_max - y_min)
     )
-    x_norm = (x_arr - x_min) * scale + padding + (target_width  - 2*padding - (x_max - x_min)*scale) / 2
-    y_norm = (y_arr - y_min) * scale + padding + (target_height - 2*padding - (y_max - y_min)*scale) / 2
-    y_norm = target_height - y_norm
-    return x_norm, y_norm, x_min, x_max, y_min, y_max, scale
 
+    # Normalizacja współrzędnych i centrowanie toru w oknie
+    x_scaled = (x_coords - x_min) * scale + margin + (window_width  - 2*margin - (x_max - x_min)*scale) / 2
+    y_scaled = (y_coords - y_min) * scale + margin + (window_height - 2*margin - (y_max - y_min)*scale) / 2
 
-def _race_key(race, session_type):
-    """Unikalny klucz dla wyścigu+sesji, używany jako ID w JSON."""
-    suffix = "Race" if session_type == 'R' else "Sprint"
-    return f"{race['name'].replace(' ', '_')}_{suffix}"
+    # Odwrócenie osi Y
+    y_scaled = window_height - y_scaled
 
+    return x_scaled, y_scaled, x_min, x_max, y_min, y_max, scale
 
-def wczytaj_istniejacy_plik():
-    """Wczytuje races_all.json jeśli już istnieje, zwraca słownik wyścigów."""
+def generate_race_session_key(race: dict, session_type: str) -> str:
+    """
+    Tworzy unikalny identyfikator sesji wyścigowej używany jako klucz w pliku JSON.
+    :param race: Słownik z danymi wyścigu
+    :param session_type: Kod sesji.
+    :return: Zwraca string będący unikalnym identyfikatorem.
+    """
+    session_suffix = "Race" if session_type == 'R' else "Sprint"
+
+    return f"{race['name'].replace(' ', '_')}_{session_suffix}"
+
+def load_existing_race_data() -> dict:
+    """
+    Wczytuje dane z pliku wyjściowego JSON, jeśli ten istnieje.
+    :return: Zwraca słownik zawierający dane wyścigów lub pusty słownik (jeśli plik nie istnieje).
+    """
     if os.path.exists(OUTPUT_FILE):
         print(f"📂 Znaleziono istniejący plik '{OUTPUT_FILE}' — doczytam nowe wyścigi.")
         with open(OUTPUT_FILE, 'r') as f:
@@ -86,29 +114,38 @@ def wczytaj_istniejacy_plik():
         return data.get("races", {})
     return {}
 
-
-def zapisz_plik(races_dict):
-    """Zapisuje wszystkie wyścigi do races_all.json."""
+def save_race_data_to_file(races_dict: dict):
+    """
+    Zapisuje zbiorcze dane wszystkich wyscigow do pliku wyjsciowego JSON.
+    :param races_dict: Słownik zawierajacy przetworzone dane wszystkich sesji.
+    """
     output = {
         "year":  YEAR,
         "races": races_dict,
     }
+
     with open(OUTPUT_FILE, 'w') as f:
         json.dump(output, f, separators=(',', ':'))
-    size_mb = os.path.getsize(OUTPUT_FILE) / 1_000_000
-    print(f"\n✅ Zapisano '{OUTPUT_FILE}' ({size_mb:.1f} MB) — {len(races_dict)} wyścig(ów) w pliku.")
 
+    file_size_mb = os.path.getsize(OUTPUT_FILE) / 1_000_000
 
-def wybierz_wyscig(races_dict):
-    """Wyświetla listę wyścigów z oznaczeniem już pobranych."""
+    print(f"\n✅ Zapisano '{OUTPUT_FILE}' ({file_size_mb:.1f} MB). Liczba wyścigów w bazie: {len(races_dict)}.")
+
+def select_race(races_dict: dict):
+    """
+    Wyświetla listę wyścigów z oznaczeniem już pobranych.
+    :param races_dict: Aktualny słownik z już przetworzonymi wyścigami.
+    :return: Zwraca słownik z danymi wybranego wyścigu.
+    """
     print("\n" + "="*62)
     print("  F1 2025 – Wybór wyścigu")
     print("="*62)
+
     for key, race in RACES.items():
-        race_key    = _race_key(race, 'R')
+        race_key    = generate_race_session_key(race, 'R')
         sprint_tag  = " [SPRINT]" if race["sprint"] else ""
-        pobrano_tag = " ✓" if race_key in races_dict else ""
-        print(f"  {key:>2}. {race['name']:<22} ({race['circuit']}){sprint_tag}{pobrano_tag}")
+        downloaded_tag = " ✓" if race_key in races_dict else ""
+        print(f"  {key:>2}. {race['name']:<22} ({race['circuit']}){sprint_tag}{downloaded_tag}")
     print("="*62)
     print("  ✓ = już pobrane i zapisane w pliku")
 
@@ -123,8 +160,12 @@ def wybierz_wyscig(races_dict):
             print("  ❌ Nieprawidłowy wybór, spróbuj ponownie.")
 
 
-def wybierz_sesje(race):
-    """Wybór sesji: wyścig główny lub sprint."""
+def select_session(race: dict) -> str:
+    """
+    Pozwala użytkownikowi wybrać typ sesji: Wyścig (Race) lub Sprint.
+    :param race: Słownik z danymi wybranego wyścigu z kalendarza RACES.
+    :return: Zwraca kod sesji ('R' dla Race, 'S' dla Sprint).
+    """
     print(f"\nDostępne sesje dla {race['name']}:")
     print("  1. Wyścig (Race)")
     if race["sprint"]:
@@ -143,10 +184,15 @@ def wybierz_sesje(race):
             print("  ❌ Nieprawidłowy wybór.")
 
 
-def pobierz_dane(race, session_type, races_dict):
-    """Pobiera dane wyścigu i dodaje do słownika races_dict."""
-
-    race_key = _race_key(race, session_type)
+def fetch_session_data(race, session_type, races_dict):
+    """
+    Pobiera dane sesji z FastF1, przetwarza telemetrię i zapisuje do słownika.
+    :param race: Słownik z kalendarza RACES zawierający dane o rundzie.
+    :param session_type: Typ sesji
+    :param races_dict: Główny słownik z danymi, do którego dopisujemy wyniki.
+    """
+    # Generowanie unikalnego klucza
+    race_key = generate_race_session_key(race, session_type)
 
     if race_key in races_dict:
         ans = input(f"\n⚠️  '{race_key}' już istnieje w pliku. Nadpisać? (t/n): ")
@@ -154,18 +200,23 @@ def pobierz_dane(race, session_type, races_dict):
             print("Pominięto.")
             return
 
+    # Przygotowanie folder na dane (Cache)
     os.makedirs(CACHE_DIR, exist_ok=True)
     fastf1.Cache.enable_cache(CACHE_DIR)
 
     print(f"\nŁadowanie: {YEAR} {race['name']} – sesja '{session_type}'...")
+
+    # Pobieranie sesji z serwerow FastF1
     session = fastf1.get_session(YEAR, race["round"], session_type)
     session.load(telemetry=True, laps=True, weather=False, messages=False)
 
     event_name = session.event['EventName']
-    print(f"Załadowano: {event_name}")
+    print(f"Załadowano dane dla: {event_name}")
 
-    # ── Layout toru ──────────────────────────────────────────────────────────
+    # 1. LAYOUT TORU
+
     print("Wyodrębniam layout toru...")
+
     fastest = session.laps.pick_fastest()
     tel     = fastest.get_telemetry()
     raw_x   = tel['X'].values.astype(float)
@@ -175,29 +226,34 @@ def pobierz_dane(race, session_type, races_dict):
     raw_x = raw_x[::step]
     raw_y = raw_y[::step]
 
-    norm_x, norm_y, x_min, x_max, y_min, y_max, scale = normalize_track(raw_x, raw_y)
+    # Sklalowanie współrzędnych GPS na piksele
+    x_scaled, y_scaled, x_min, x_max, y_min, y_max, scale = normalize_track_coordinates(raw_x, raw_y)
 
+    # Lista punktów toru w dormacie gotowym dla SFML
     track_points = [{"x": round(float(nx), 2), "y": round(float(ny), 2)}
-                    for nx, ny in zip(norm_x, norm_y)]
+                    for nx, ny in zip(x_scaled,y_scaled)]
 
-    # ── Lista kierowców ──────────────────────────────────────────────────────
+    # 2. LISTA KIEROWCÓW
+
     drivers     = list(session.drivers)[:MAX_DRIVERS]
     driver_info = {}
-    for drv in drivers:
+
+    for d in drivers:
         try:
-            info  = session.get_driver(drv)
+            info  = session.get_driver(d)
             team  = info.get('TeamName', 'Unknown')
             color = TEAM_COLORS.get(team, '#FFFFFF')
-            abbr  = info.get('Abbreviation', drv)
+            abbr  = info.get('Abbreviation', d)
 
-            # Pit stopy
+            # Pobieranie okrążeń, na których wystąpiły zjazdy do boksów
             try:
-                drv_laps = session.laps[session.laps['Driver'] == abbr]
-                pit_laps = drv_laps[drv_laps['PitInTime'].notna()]['LapNumber'].tolist()
+                driver_laps = session.laps[session.laps['Driver'] == abbr]
+                pit_laps = driver_laps[driver_laps['PitInTime'].notna()]['LapNumber'].tolist()
                 pit_laps = [int(x) for x in pit_laps]
             except Exception:
                 pit_laps = []
 
+            # Określanie czy i kiedy kierowca odpadł z wyścigu (DNF)
             out_from_lap = 999
             try:
                 if hasattr(session, 'results') and session.results is not None:
@@ -206,34 +262,35 @@ def pobierz_dane(race, session_type, races_dict):
                         finish_status = str(res.iloc[0].get('Status', ''))
                         if finish_status not in ['Finished', '+1 Lap', '+2 Laps',
                                                  '+3 Laps', '+4 Laps', '+5 Laps']:
-                            drv_laps_out = session.laps[session.laps['Driver'] == abbr]
-                            if not drv_laps_out.empty:
-                                out_from_lap = int(drv_laps_out.iloc[-1]['LapNumber'])
+                            driver_laps_out = session.laps[session.laps['Driver'] == abbr]
+                            if not driver_laps_out.empty:
+                                out_from_lap = int(driver_laps_out.iloc[-1]['LapNumber'])
             except Exception:
                 pass
 
-            driver_info[drv] = {
+            driver_info[d] = {
                 "abbr":      abbr,
                 "full_name": f"{info.get('FirstName','')} {info.get('LastName','')}".strip(),
                 "team":      team,
                 "color_hex": color,
-                "color_rgb": hex_to_rgb(color),
-                "pit_laps":  pit_laps,  # ← nowe
+                "color_rgb": convert_hex_to_rgb(color),
+                "pit_laps":  pit_laps,
                 "out_from_lap": out_from_lap,
             }
         except Exception:
-            driver_info[drv] = {
-                "abbr":      drv,
-                "full_name": drv,
+            driver_info[d] = {
+                "abbr":      d,
+                "full_name": d,
                 "team":      "Unknown",
                 "color_hex": "#FFFFFF",
                 "color_rgb": [255, 255, 255],
                 "pit_laps":  [],
-                "out_from_laps": 999,
+                "out_from_lap": 999,
             }
     print(f"Kierowcy: {list(driver_info.keys())}")
 
-    # ── Klatki pozycji ───────────────────────────────────────────────────────────
+    # 3. KLATKI POZYCJI
+
     print("Buduję klatki pozycji (to może chwilę potrwać)...")
     frames = []
 
@@ -248,49 +305,45 @@ def pobierz_dane(race, session_type, races_dict):
     if pos is None or len(pos) == 0:
         print("⚠️  Brak danych pozycyjnych dla tej sesji.")
     else:
-# Znajdź kierowcę który ma najwięcej okrążeń w laps
-        ref_drv = drivers[0]
-        if ref_drv not in pos:
-            ref_drv = next(iter(pos))
-
-# Użyj skrótu do liczenia okrążeń
-        best_drv = ref_drv
+        # Znajdź kierowcę, który ma najwięcej okrążeń w laps
+        best_driver = drivers[0]
         best_count = 0
+
         for d in drivers:
-            if d not in pos:
-                continue
-            abbr = driver_info.get(d, {}).get('abbr', d)
-            count = len(session.laps[session.laps['Driver'] == abbr])
-            if count > best_count:
-                best_count = count
-                best_drv = d
-        ref_drv = best_drv
+            if d in pos:
+                abbr = driver_info.get(d, {}).get('abbr', d)
+                count = len(session.laps[session.laps['Driver'] == abbr])
+                if count > best_count:
+                    best_count = count
+                    best_driver = d
 
-        ref_df = pos[ref_drv].copy()
+        ref_driver = best_driver
+
+        ref_df = pos[ref_driver].copy()
         ref_df = ref_df.iloc[::SAMPLE_EVERY].copy().reset_index(drop=True)
-        print(f"Ref driver: {ref_drv}, klatek: {len(ref_df)}")
-
+        print(f"Kierowca referencyjny: {ref_driver}, klatek: {len(ref_df)}")
 
         pos_times = {}
-        for drv in drivers:
-            if drv in pos:
-                pos_times[drv] = pos[drv]['SessionTime'].dt.total_seconds().values
+        for d in drivers:
+            if d in pos:
+                pos_times[d] = pos[d]['SessionTime'].dt.total_seconds().values
+
         try:
             track_status_data = session.track_status
             ts_times = track_status_data['Time'].dt.total_seconds().values
             ts_status = track_status_data['Status'].values
         except Exception:
-            track_status_data = None
-            ts_times = None
-            ts_status = None
+            ts_times, ts_status = None, None
 
+        # Główna pętla budująca klatki czasu
         for i, (_, ref_row) in enumerate(ref_df.iterrows()):
             t = float(ref_row['SessionTime'].total_seconds())
+
             lap_num = 0
             try:
-                ref_abbr = driver_info[ref_drv]['abbr']  # np. '81' → 'BEA'
-                drv_laps = session.laps[session.laps['Driver'] == ref_abbr].sort_values('LapStartTime')
-                for _, lap_row in drv_laps.iterrows():
+                ref_abbr = driver_info[ref_driver]['abbr']
+                driver_laps = session.laps[session.laps['Driver'] == ref_abbr].sort_values('LapStartTime')
+                for _, lap_row in driver_laps.iterrows():
                     lst = lap_row['LapStartTime']
                     if hasattr(lst, 'total_seconds'):
                         lst_sec = lst.total_seconds()
@@ -313,12 +366,12 @@ def pobierz_dane(race, session_type, races_dict):
 
             frame = {"t": round(t, 2), "lap": lap_num, "status": status, "cars": []}
 
-            for drv in drivers:
-                if drv not in pos or drv not in pos_times:
+            for d in drivers:
+                if d not in pos or d not in pos_times:
                     continue
-                times_arr = pos_times[drv]
+                times_arr = pos_times[d]
                 idx = int(np.argmin(np.abs(times_arr - t)))
-                row = pos[drv].iloc[idx]
+                row = pos[d].iloc[idx]
 
                 raw_x = float(row['X'])
                 raw_y = float(row['Y'])
@@ -330,9 +383,9 @@ def pobierz_dane(race, session_type, races_dict):
                 car_y = 700 - ((raw_y - y_min) * scale + 80 + (700 - 160 - (y_max - y_min)*scale) / 2)
                 pos_num = 99
                 try:
-                    drv_abbr = driver_info[drv]['abbr']
-                    drv_laps_pos = session.laps[session.laps['Driver'] == drv_abbr]
-                    on_lap = drv_laps_pos[drv_laps_pos['LapStartTime'].dt.total_seconds() <= t]
+                    driver_abbr = driver_info[d]['abbr']
+                    driver_laps_pos = session.laps[session.laps['Driver'] == driver_abbr]
+                    on_lap = driver_laps_pos[driver_laps_pos['LapStartTime'].dt.total_seconds() <= t]
                     if not on_lap.empty:
                         pos_val = on_lap.iloc[-1]['Position']
                         if not np.isnan(pos_val):
@@ -340,7 +393,7 @@ def pobierz_dane(race, session_type, races_dict):
                 except Exception:
                     pass
                 frame["cars"].append({
-                    "drv":   drv,
+                    "driver":   d,
                     "x":     round(car_x, 1),
                     "y":     round(car_y, 1),
                     "speed": 0,
@@ -356,7 +409,9 @@ def pobierz_dane(race, session_type, races_dict):
                 frames.append(frame)
 
         print(f"\nLiczba wyeksportowanych klatek: {len(frames)}")
-    # ── Dodaj do słownika ────────────────────────────────────────────────────
+
+    # 4. DODANIE DO SŁOWNIKA
+
     races_dict[race_key] = {
         "event":         event_name,
         "round":         race["round"],
@@ -369,21 +424,20 @@ def pobierz_dane(race, session_type, races_dict):
         "frames":        frames,
     }
 
-    print(f"  Dodano '{race_key}' do pliku.")
-
+    print(f" Dodano '{race_key}' do pliku.")
 
 def main():
     print("\n🏎  F1 Race Replay – Data Fetcher")
 
-    races_dict = wczytaj_istniejacy_plik()
+    races_dict = load_existing_race_data()
 
     while True:
-        race         = wybierz_wyscig(races_dict)
-        session_type = wybierz_sesje(race)
-        pobierz_dane(race, session_type, races_dict)
+        race         = select_race(races_dict)
+        session_type = select_session(race)
+        fetch_session_data(race, session_type, races_dict)
 
         # Zapisz po każdym wyścigu — żeby nie stracić danych przy przerwaniu
-        zapisz_plik(races_dict)
+        save_race_data_to_file(races_dict)
 
         again = input("\nPobrać kolejny wyścig? (t/n): ")
         if again.lower() != 't':
