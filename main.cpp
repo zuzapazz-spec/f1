@@ -280,39 +280,52 @@ std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, c
     std::vector<MenuButton> buttons;
 
     // Ustawienia układu menu
-    const float startY = 100.f;
-    const float buttonWidth = 700.f;
-    const float buttonHeight = 18.f;
-    const float gap = 2.f;
-    const float startX = (1200.f - buttonWidth) / 2.f;
+    float btnW = 500.f;
+    float btnH = 32.f;
+    float gap = 5.f;
+    float startY = 110.f;
+
+    float col1X = (1200.f /2.f - btnW - 20.f) / 2.f + 20.f;
+    float col2X = 1200.f / 2.f + (1200.f / 2.f - btnW - 20.f) / 2.f;
+    int colSize = 15;
 
     for (size_t i = 0; i < keys.size(); i++) {
         MenuButton btn(font);
         btn.raceKey = keys[i];
 
+        float startX = (i<colSize)? col1X : col2X;
+        int row = (i<colSize)? i:i - colSize;
+        float posY = startY + row * (btnH + gap);
+
         // Konfiguracja tła przycisku
-        btn.box.setSize({buttonWidth, buttonHeight});
-        btn.box.setPosition({startX,startY + i * (buttonHeight + gap)});
+        btn.box.setSize({btnW, btnH});
+        btn.box.setPosition({startX,posY});
         btn.box.setFillColor(sf::Color(40, 40, 40));
         btn.box.setOutlineColor(sf::Color(180, 0, 0));
         btn.box.setOutlineThickness(1.f);
 
         // Formatowanie tekstu
         std::string label = keys[i];
-        for (char& c : label) if (c=='-') c = ' ';
-
-        btn.text.setString(label);
-        btn.text.setCharacterSize(14);
+        for (char& c : label) {
+            if (c=='-') c = ' ';
+            else if ((unsigned char)c>127) c = '?';
+        }
+        size_t pos = label.find("S??o");
+        if (pos != std::string::npos) {
+            label = label.replace(pos, 4, "Sao");
+        }
+        btn.text = sf::Text(font, label, 16);
         btn.text.setFillColor(sf::Color::White);
 
+
         // Centrowanie napisu
-        auto textBounds = btn.text.getLocalBounds();
+        auto bounds = btn.text.getLocalBounds();
         btn.text.setPosition({
-            startX + (buttonWidth - textBounds.size.x)/2.f,
-            startY + i * (buttonHeight + gap) + (buttonHeight - textBounds.size.y) / 2.f - 4.f
+            startX + (btnW - bounds.size.x)/2.f,
+           posY + (btnH - bounds.size.y) / 2.f - 4.f
         });
 
-        buttons.push_back(btn);
+        buttons.push_back(std::move(btn));
     }
     return buttons;
 }
@@ -384,7 +397,7 @@ int main () {
 
     // STAN APLIKACJI I ZMIENNE SYMULACJ
 
-    enum class AppState {MENU, RACE};
+    enum class AppState {MENU, INTRO, RACE};
     AppState state = AppState::MENU;
 
     RaceData currentRace;
@@ -394,11 +407,12 @@ int main () {
     size_t frameIndex = 0;
     bool isPaused = false;
     sf::Clock clock;
+    sf::Clock introClock;
+    float introProgress = 0.f;
 
     auto menuButtons = buildMenuButtons(raceKeys, font);
 
     // ELEMENTY INTERFEJSU
-
     sf::Text titleText(font, "F1 2025 - Wybierz wyscig", 32);
     titleText.setFillColor(sf::Color(220, 0, 0));
     {
@@ -447,6 +461,24 @@ int main () {
     progressFill.setPosition({0.f, 688.f});
     progressFill.setFillColor(sf::Color(220, 0, 0));
 
+    sf::Texture logoTexture;
+    bool logoLoaded = logoTexture.loadFromFile("logo.png");
+    sf::Sprite logoSprite(logoTexture);
+
+    if (logoLoaded) {
+
+
+        auto size = logoTexture.getSize();
+        float targetHeight = 70.f;
+        float scale = targetHeight / size.y;
+        logoSprite.setScale({scale, scale});
+
+        float scaleWidht = size.x * scale;
+        logoSprite.setPosition({(1200.f - scaleWidht) / 2.f, 15.f});
+    }
+
+
+
     // GŁÓWNA PĘTLA PROGRAMU
 
     while (window.isOpen()) {
@@ -475,7 +507,8 @@ int main () {
                                 frameIndex = 0;
                                 isPaused = false;
                                 clock.restart();
-                                state = AppState::RACE;
+                                state = AppState::INTRO;
+                                introClock.restart();
                             }
                         }
                     }
@@ -555,6 +588,36 @@ int main () {
                 }
             }
         }
+        else if (state == AppState::INTRO) {
+            float elapsed = introClock.getElapsedTime().asSeconds();
+
+            if (elapsed > 2.f) {
+                state = AppState::RACE;
+                clock.restart();
+            }
+            sf::RectangleShape flagPole({6.f, 300.f});
+            flagPole.setPosition({580.f, 200.f});
+            flagPole.setFillColor(sf::Color(150,150,150));
+            window.draw(flagPole);
+
+            for (int row = 0; row<4; row++) {
+                for (int col = 0; col<6; col++) {
+                    sf::RectangleShape cell({30.f, 25.f});
+                    float waveOffset = std::sin(elapsed * 6.f + col * 0.4f) * 15.f;
+                    cell.setPosition({586.f + col * 30.f, 210.f + row * 25.f + waveOffset});
+                    cell.setFillColor((row + col) % 2 == 0 ? sf::Color::White : sf::Color::Black);
+                    window.draw(cell);
+                }
+                sf::Text raceTitle(font, currentRace.event, 36);
+                raceTitle.setFillColor(sf::Color::White);
+                raceTitle.setOutlineColor(sf::Color::Black);
+                raceTitle.setOutlineThickness(2.f);
+
+                auto bounds = raceTitle.getLocalBounds();
+                raceTitle.setPosition({(1200.f - bounds.size.x) / 2.f, 580.f});
+                window.draw(raceTitle);
+            }
+        }
         else if (state == AppState::RACE) {
             if (!currentRace.frames.empty() && frameIndex < currentRace.frames.size()) {
                 const RaceFrame& frame = currentRace.frames[frameIndex];
@@ -597,8 +660,12 @@ int main () {
 
         if (state == AppState::MENU) {
             window.setView(window.getDefaultView());
-            window.draw(titleText);
-
+            if (logoLoaded) {
+                window.draw(logoSprite);
+            }
+            else {
+                window.draw(titleText);
+            }
             subtitleText.setOrigin({ 0.f, 0.f });
 
             auto bounds = subtitleText.getLocalBounds();
@@ -614,6 +681,7 @@ int main () {
                 window.draw(button.text);
             }
         }
+
 
         // Rysowanie toru
         else if (state == AppState::RACE) {

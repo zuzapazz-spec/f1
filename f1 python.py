@@ -25,7 +25,7 @@ RACES = {
     18: {"name": "Singapore GP",      "round": 18, "circuit": "Singapore",   "sprint": False},
     19: {"name": "United States GP",  "round": 19, "circuit": "Austin",      "sprint": True},
     20: {"name": "Mexico City GP",    "round": 20, "circuit": "Mexico City", "sprint": False},
-    21: {"name": "São Paulo GP",      "round": 21, "circuit": "São Paulo",   "sprint": True},
+    21: {"name": "Sao Paulo GP",      "round": 21, "circuit": "São Paulo",   "sprint": True},
     22: {"name": "Las Vegas GP",      "round": 22, "circuit": "Las Vegas",   "sprint": False},
     23: {"name": "Qatar GP",          "round": 23, "circuit": "Lusail",      "sprint": True},
     24: {"name": "Abu Dhabi GP",      "round": 24, "circuit": "Yas Marina",  "sprint": False},
