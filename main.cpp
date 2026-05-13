@@ -354,6 +354,23 @@ std::string formatTime(float seconds) {
     sprintf(buffer, "%02d:%02d:%02d", h, m, s);
     return std::string(buffer);
 }
+std::string cleanString(const std::string& s) {
+    std::string result;
+    bool lastWasSpecial = false;
+
+    for (unsigned char c : s) {
+        if (c <= 127) {
+            result += c;
+            lastWasSpecial = false;
+        } else {
+            if (!lastWasSpecial) {
+                result += 'a';
+                lastWasSpecial = true;
+            }
+        }
+    }
+    return result;
+}
 
 int main () {
 
@@ -608,7 +625,7 @@ int main () {
                     cell.setFillColor((row + col) % 2 == 0 ? sf::Color::White : sf::Color::Black);
                     window.draw(cell);
                 }
-                sf::Text raceTitle(font, currentRace.event, 36);
+                sf::Text raceTitle(font, cleanString(currentRace.event), 36);
                 raceTitle.setFillColor(sf::Color::White);
                 raceTitle.setOutlineColor(sf::Color::Black);
                 raceTitle.setOutlineThickness(2.f);
@@ -644,7 +661,7 @@ int main () {
 
                 // Aktualizacja napisów HUD
                 std::string pauseLabel = isPaused ? " [PAUZA]" : "";
-                hudText.setString(currentRace.event + pauseLabel);
+                hudText.setString(cleanString(currentRace.event + pauseLabel));
                 std::string subStatus = "LAP: " + std::to_string(frame.lap) + "  |  TIME: " + formatTime(frame.time);
                 subtitleText.setString(subStatus);
                 subtitleText.setCharacterSize(14);
