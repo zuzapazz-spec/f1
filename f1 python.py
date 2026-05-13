@@ -268,7 +268,7 @@ def fetch_session_data(race, session_type, races_dict):
             except Exception:
                 pass
 
-            driver_info[d] = {
+            driver_info[abbr] = {
                 "abbr":      abbr,
                 "full_name": f"{info.get('FirstName','')} {info.get('LastName','')}".strip(),
                 "team":      team,
@@ -340,7 +340,9 @@ def fetch_session_data(race, session_type, races_dict):
 
             lap_num = 0
             try:
-                ref_abbr = driver_info[ref_driver]['abbr']
+                #ref_abbr = driver_info[ref_driver]['abbr']
+                #driver_laps = session.laps[session.laps['Driver'] == ref_abbr].sort_values('LapStartTime')
+                ref_abbr = session.get_driver(ref_driver)['Abbreviation']
                 driver_laps = session.laps[session.laps['Driver'] == ref_abbr].sort_values('LapStartTime')
                 for _, lap_row in driver_laps.iterrows():
                     lst = lap_row['LapStartTime']
@@ -368,6 +370,12 @@ def fetch_session_data(race, session_type, races_dict):
             for d in drivers:
                 if d not in pos or d not in pos_times:
                     continue
+
+                try:
+                    driver_abbr = session.get_driver(d)['Abbreviation']
+                except:
+                    driver_abbr = str(d)
+
                 times_arr = pos_times[d]
                 idx = int(np.argmin(np.abs(times_arr - t)))
                 row = pos[d].iloc[idx]
@@ -392,7 +400,7 @@ def fetch_session_data(race, session_type, races_dict):
                 except Exception:
                     pass
                 frame["cars"].append({
-                    "driver":   d,
+                    "driver":   driver_abbr,
                     "x":     round(car_x, 1),
                     "y":     round(car_y, 1),
                     "speed": 0,
