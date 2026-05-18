@@ -1,3 +1,5 @@
 cmake-build-debug/
 *.json
 .fastf1_cache/
+.idea/
+f1env/
