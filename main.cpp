@@ -9,7 +9,6 @@
 
 using json = nlohmann::json;
 
-
 /**
  * @brief Pojedynczy punkt na mapie toru wyścigowego.
  */
@@ -42,7 +41,7 @@ struct RaceFrame {
 };
 
 /**
- * @brief Kompletne dane o całym wyścigu (tor, wszytskie klatki telemetrii).
+ * @brief Kompletne dane o całym wyścigu (tor, wszystkie klatki telemetrii).
  */
 struct RaceData {
     std::string event;
@@ -115,19 +114,18 @@ RaceData parseRace(const json& raceJson) {
     rd.circuit = raceJson.value("circuit", "Unknown");
     rd.session = raceJson.value("session", "R");
 
-    // Wczytywannie punktów toru (nitki wyścigowej)
+    // Wczytywannie punktów toru
     for (auto& pt: raceJson["track_points"]) {
         rd.trackPoints.push_back({pt["x"], pt["y"]});
     }
 
-    // Wczytywanie klatek telemetrii (stan wyścigu w czasie)
+    // Parsowanie osi czasu i klatek telemetrii wszystkich bolidów
     for (auto& f: raceJson["frames"]) {
         RaceFrame frame;
         frame.time = f["t"];
         frame.lap = f["lap"];
         frame.status = f.value("status", 1);
 
-        // Wczytywanie danych o każdym bolidzie w danej klatce
         for (auto& c: f["cars"]) {
             CarFrame cf;
             cf.driver = c["driver"];
@@ -153,29 +151,22 @@ RaceData parseRace(const json& raceJson) {
 std::vector <F1Car> buildCars(const json& driversJson, const sf::Font& font) {
     std::vector <F1Car> cars;
 
+    // Iteracja po bazie kierowców i mapowanie na obiekty graficzne
     for (auto& [code, info]: driversJson.items()) {
-
-        // Pobieranie koloru zespołu w formacie RGB
         auto rgb = info["color_rgb"];
         sf::Color color(rgb[0], rgb[1], rgb[2]);
 
-        // Inicjalizacja nowego obiektu bolidu
         F1Car car(code, color, font);
-
-        // Ustawienie skrótu i tekstu etykiety
         car.abbr = info.value("abbr", code);
         car.label.setString(car.abbr);
 
-        // Pobieranie okrążeń, na kórych nastąpił pit-stop
+        // Odczyt konfiguracji pit-stopów oraz statusu DNF (jeśli istnieją)
         if (info.contains("pit_laps")) {
-            for (auto& pl : info["pit_laps"])
+            for (auto& pl : info["pit_laps"]) {
                 car.pitLaps.push_back(pl.get<int>());
-
-                // Pobieranie informacji o wycofaniu się z wyścigu (DNF)
-                car.outFromLap = info.value("out_from_lap", 999);
+            }
+            car.outFromLap = info.value("out_from_lap", 999);
         }
-
-        // Przeniesienie gotowego bolidu do listy
         cars.push_back(std::move(car));
     }
     return cars;
@@ -191,18 +182,17 @@ sf::VertexArray buildTrack(const std::vector<TrackPoint>& points) {
     float width = 8.f;
 
     for (size_t i = 0; i + 1 < points.size(); i++) {
-        // Obliczanie wektora kierunku między obecnym a następnym punktem
         float dx = points[i+1].x - points[i].x;
         float dy = points[i+1].y - points[i].y;
         float length = std::sqrt(dx*dx + dy*dy);
 
         if (length == 0) continue;
 
-        // Obliczanie wektora normalnego (prostopadłego) do kierunku jazdy.
+        // Obliczanie wektora prostopadłego do kierunku jazdy (szerokość toru).
         float nx = -dy / length * width * 0.5f;
         float ny =  dx / length * width * 0.5f;
 
-        // Tworzenie dwóch wierzchołków dla każdego punktu (lewa i prawa krawędź toru)
+        // Tworzenie lewej i prawej krawędzi toru.
         sf::Vertex leftEdge, rightEdge;
         leftEdge.position = {points[i].x + nx, points[i].y + ny};
         rightEdge.position = {points[i].x - nx, points[i].y - ny};
@@ -237,6 +227,7 @@ sf::VertexArray buildFinishLine(const std::vector<TrackPoint>& points) {
     int cols = 10;
     int rows = 2;
 
+    // Generowanie siatki czarno-białych kwadratów
     for (int r = 0; r < rows; r++) {
         for (int c = 0; c < cols; c++) {
             sf::Vector2f p1 = left + (float)c / (float)cols * (right - left) + (float)r * thick;
@@ -257,7 +248,7 @@ sf::VertexArray buildFinishLine(const std::vector<TrackPoint>& points) {
 }
 
 /**
- * @brief Interkatywny przycisk w menu wyboru wyścigu.
+ * @brief Interaktywny przycisk w menu wyboru wyścigu.
  */
 struct MenuButton {
     sf::RectangleShape box;
@@ -298,14 +289,13 @@ std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, c
         int row = (i<colSize)? i:i - colSize;
         float posY = startY + row * (btnH + gap);
 
-        // Konfiguracja tła przycisku
         btn.box.setSize({btnW, btnH});
         btn.box.setPosition({startX,posY});
         btn.box.setFillColor(sf::Color(40, 40, 40));
         btn.box.setOutlineColor(sf::Color(180, 0, 0));
         btn.box.setOutlineThickness(1.f);
 
-        // Formatowanie tekstu
+        // Formatowanie tekstu nazwy wyścigu
         std::string label = keys[i];
         for (char& c : label) {
             if (c=='-') c = ' ';
@@ -318,8 +308,6 @@ std::vector<MenuButton> buildMenuButtons(const std::vector<std::string>& keys, c
         btn.text = sf::Text(font, label, 16);
         btn.text.setFillColor(sf::Color::White);
 
-
-        // Centrowanie napisu
         auto bounds = btn.text.getLocalBounds();
         btn.text.setPosition({
             startX + (btnW - bounds.size.x)/2.f,
@@ -346,6 +334,11 @@ std::pair<sf::Color, std::string> getFlagInfo(int status) {
     }
 }
 
+/**
+ * @brief Formatuje czas podany w sekundach do postaci HH:MM:SS.
+ * @param seconds Czas w sekundach.
+ * @return Zwraca string reprezentujący czas.
+ */
 std::string formatTime(float seconds) {
     int total = static_cast<int>(seconds);
     int h = total / 3600;
@@ -355,6 +348,12 @@ std::string formatTime(float seconds) {
     sprintf(buffer, "%02d:%02d:%02d", h, m, s);
     return std::string(buffer);
 }
+
+/**
+ * @brief Usuwa znaki spoza podstawowej tabeli ASCII.
+ * @param s String, który może zawierać znaki spejclane.
+ * @return Zwraca "czysty" string.
+ */
 std::string cleanString(const std::string& s) {
     std::string result;
     bool lastWasSpecial = false;
@@ -373,9 +372,12 @@ std::string cleanString(const std::string& s) {
     return result;
 }
 
+/**
+ * @brief Główna funkcja sterująca aplikacją wizualizatora telemetrycznego F1.
+ */
 int main () {
 
-    // KONFIGURACJA OKNA I ZASOBÓW
+    // 1. KONFIGURACJA OKNA SFML I ZASOBÓW SYSTEMOWYCH
 
     sf::RenderWindow window(sf::VideoMode({1200,700}), "F1 Telemetry Visualizer");
     window.setFramerateLimit(60);
@@ -394,7 +396,7 @@ int main () {
         return -1;
     }
 
-    // ŁADOWANIE DANYCH JSON
+    // 2. ŁADOWANIE DANYCH JSON
 
     std::ifstream file("races_all.json");
     if (!file.is_open()) {
@@ -413,7 +415,7 @@ int main () {
         return -1;
     }
 
-    // STAN APLIKACJI I ZMIENNE SYMULACJ
+    // 3. STAN APLIKACJI I ZMIENNE SYMULACJI
 
     enum class AppState {MENU, INTRO, RACE};
     AppState state = AppState::MENU;
@@ -430,7 +432,8 @@ int main () {
 
     auto menuButtons = buildMenuButtons(raceKeys, font);
 
-    // ELEMENTY INTERFEJSU
+    // 4. ELEMENTY INTERFEJSU
+
     sf::Text titleText(font, "F1 2025 - Wybierz wyscig", 32);
     titleText.setFillColor(sf::Color(220, 0, 0));
     {
@@ -485,7 +488,6 @@ int main () {
 
     if (logoLoaded) {
 
-
         auto size = logoTexture.getSize();
         float targetHeight = 70.f;
         float scale = targetHeight / size.y;
@@ -495,20 +497,17 @@ int main () {
         logoSprite.setPosition({(1200.f - scaleWidht) / 2.f, 15.f});
     }
 
-
-
-    // GŁÓWNA PĘTLA PROGRAMU
+    // 5. GŁÓWNA PĘTLA PROGRAMU
 
     while (window.isOpen()) {
 
-        // 1. OBSŁUGA ZDARZEŃ
+        // 5.1. OBSŁUGA ZDARZEŃ
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) {
                 window.close();
             }
 
-            // Obsługa myszki (wybór wyścigu w menu)
-
+            // Obsługa myszki (sterowanie menu)
             if (const auto* mouse = event->getIf<sf::Event::MouseButtonPressed>()) {
                 if (mouse->button == sf::Mouse::Button::Left) {
                     sf::Vector2f mousePos = window.mapPixelToCoords({mouse->position.x, mouse->position.y});
@@ -533,16 +532,12 @@ int main () {
                 }
             }
 
-            // Obsługa klawiatury (sterowanie symulacją)
-
+            // Obsługa klawiatury (sterowanie odtwarzaczem symulacji)
             if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
                 if (state == AppState::RACE) {
-                    // Zatrzymanie
                     if (key->code == sf::Keyboard::Key::Space) isPaused = !isPaused;
 
-                    // Przewijanie do tyłu
                     if (key->code == sf::Keyboard::Key::A) {
-                        std::cout << "LEFT" << std::endl;
                         if (frameIndex > 100)
                             frameIndex -= 100;
                         else
@@ -550,9 +545,7 @@ int main () {
                         clock.restart();
                     }
 
-                    // Przewijanie do przodu
                     if (key->code == sf::Keyboard::Key::D) {
-                        std::cout << "RIGHT" << std::endl;
                         if (frameIndex + 100 < currentRace.frames.size())
                             frameIndex += 100;
                         else
@@ -560,13 +553,11 @@ int main () {
                         clock.restart();
                     }
 
-                    // Reset
                     if (key->code == sf::Keyboard::Key::R) {
                         frameIndex = 0;
                         clock.restart();
                     }
 
-                    // Powrót do menu
                     if (key->code == sf::Keyboard::Key::Escape) {
                         state = AppState::MENU;
 
@@ -579,7 +570,6 @@ int main () {
                         window.setView(window.getDefaultView());
                     }
 
-                    // Szybkie przewijanie
                     if (key->code == sf::Keyboard::Key::F) {
                         if (frameIndex + 500 < currentRace.frames.size())
                             frameIndex += 500;
@@ -589,7 +579,7 @@ int main () {
             }
         }
 
-        // 2. AKTUALIZACJA LOGIKI
+        // 5.2. AKTUALIZACJA LOGIKI
 
         window.clear(sf::Color(20,20,20));
 
@@ -606,6 +596,7 @@ int main () {
                 }
             }
         }
+        // Ekran powitalny (Animacja flagi startowej)
         else if (state == AppState::INTRO) {
             float elapsed = introClock.getElapsedTime().asSeconds();
 
@@ -636,11 +627,12 @@ int main () {
                 window.draw(raceTitle);
             }
         }
+        // Przetwarzanie klatek aktywnych sesji wyścigowych
         else if (state == AppState::RACE) {
             if (!currentRace.frames.empty() && frameIndex < currentRace.frames.size()) {
                 const RaceFrame& frame = currentRace.frames[frameIndex];
 
-                // Aktualizacja pozycji każdego bolidu
+                // Aktualizacja stanu i pozycji każdego bolidu
                 for (const auto& carData : frame.cars) {
                     for (auto& car : activeCars) {
                         if (car.driverCode == carData.driver) {
@@ -664,7 +656,7 @@ int main () {
                     clock.restart();
                 }
 
-                // Aktualizacja napisów HUD
+                // Aktualizacja napisów HUD i paska postępu
                 std::string pauseLabel = isPaused ? " [PAUZA]" : "";
                 hudText.setString(cleanString(currentRace.event + pauseLabel));
                 std::string subStatus = "LAP: " + std::to_string(frame.lap) + "  |  TIME: " + formatTime(frame.time);
@@ -672,14 +664,14 @@ int main () {
                 subtitleText.setCharacterSize(14);
                 subtitleText.setFillColor(sf::Color(200, 200, 200));
 
-                // Aktualizacja paska postępu na dole ekranu
                 float progress = (float)frameIndex / (float)currentRace.frames.size();
                 progressFill.setSize({1200.f * progress, 12.f});
             }
         }
 
-        // 3. RYSOWANIE
+        // 5.3. RYSOWANIE
 
+        // Renderowanie widoku menu
         if (state == AppState::MENU) {
             window.setView(window.getDefaultView());
             if (logoLoaded) {
@@ -703,9 +695,7 @@ int main () {
                 window.draw(button.text);
             }
         }
-
-
-        // Rysowanie toru
+        // Renderowanie ekranu właściwego wyścigu
         else if (state == AppState::RACE) {
             sf::View trackView(sf::FloatRect({0.f, 0.f}, {1200.f, 700.f}));
             trackView.setCenter({700.f, 350.f});
@@ -764,17 +754,16 @@ int main () {
                 });
             }
 
+            // Rysowanie posortowanej tabeli wyników live
             for (auto* car : sorted) {
                 bool inPit = std::find(car->pitLaps.begin(), car->pitLaps.end(), curLap) != car->pitLaps.end();
                 bool isOut = curLap >= car->outFromLap;
 
-                // Kwadracik z kolorem zespołu
                 sf::RectangleShape dot({12.f, 12.f});
                 dot.setFillColor(car->shape.getFillColor());
                 dot.setPosition({legendX, legendY + 3.f});
                 window.draw(dot);
 
-                // Tekst w legendzie
                 std::string posStr = "";
                 if (!isOut) {
                     for (size_t i = 0; i < sorted.size(); ++i) {
@@ -797,7 +786,7 @@ int main () {
                 legendY += 20.f;
             }
 
-            // Wyświetlanie flag
+            // Wyświetlanie flag ostrzegawczych
             if (frameIndex < currentRace.frames.size()) {
                 int currentStatus = currentRace.frames[frameIndex].status;
                 auto [flagColor, flagName] = getFlagInfo(currentStatus);
@@ -825,8 +814,7 @@ int main () {
                 }
             }
 
-            // Panel HUD
-
+            // Rysowanie paneli HUD, bocznego menu sterowania i linii czasu
             sf::RectangleShape headerBg({380.f, 70.f});
             headerBg.setFillColor(sf::Color(20, 20, 20, 180));
             headerBg.setOutlineThickness(2.f);
