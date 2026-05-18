@@ -16,7 +16,10 @@ Aplikacja w C++ z interfejsem graficznym (SFML) oraz skryptem w Pythonie, służ
 ## 🛠️ Jak uruchomić projekt lokalnie
 
 ### 1. Wymagania wstępne
-Do uruchomienia projektu potrzebujesz kompilatora C++, zainstalowanej biblioteki SFML oraz Pythona (wersja 3.8 lub nowsza).
+Do uruchomienia projektu potrzebujesz:
+* Kompilatora C++ obsługującego standard C++17 lub nowszy.
+* Zainstalowanego środowiska **Python** (wersja 3.8 lub nowsza).
+* Menedżera pakietów **vcpkg** (zintegrowanego z Twoim IDE, np. CLion) w celu automatycznego pobrania bibliotek `SFML` oraz `nlohmann-json`.
 
 ### 2. Konfiguracja środowiska Python
 Projekt nie zawiera gotowego środowiska wirtualnego ze względu na optymalizację wielkości repozytorium. Należy je stworzyć lokalnie:
@@ -34,8 +37,13 @@ source f1env/bin/activate
 pip install fastf1 requests
 ```
 
-### 3. Kompilacja C++
-Projekt jest skonfigurowany za pomocą CMake. Otwórz główny folder w swoim IDE (np. CLion) – plik CMakeLists.txt automatycznie skonfiguruje projekt. Następnie kliknij Build i Run.
+### 3. Kompilacja C++ i zarządzanie pakietami
+Projekt wykorzystuje menedżera pakietów **vcpkg** do automatycznego zarządzania zewnętrznymi bibliotekami (takimi jak `SFML` oraz `nlohmann-json`).
+
+Aby uruchomić projekt w środowisku CLion:
+1. Upewnij się, że masz włączone wsparcie dla `vcpkg` w ustawieniach IDE.
+2. Otwórz główny folder projektu – CLion automatycznie wykryje plik `CMakeLists.txt` oraz zintegrowany manifest vcpkg, po czym pobierze i skonfiguruje wymagane biblioteki.
+3. Po zakończeniu indeksowania projektu kliknij ikonę **Build**, a następnie **Run**.
 
 
 ## 💡 Co jeśli brakuje pliku `races_all.json`?
