@@ -644,11 +644,15 @@ int main () {
                     for (auto& car : activeCars) {
                         if (car.driverCode == carData.driver) {
                             car.updatePosition(carData.x, carData.y);
-
-                            if (carData.position < 99) {
-                                car.position = carData.position;
-                            }
+                            car.position = carData.position;
                             car.isOut = carData.isOut;
+
+                            if (carData.y > 640.f) {
+                                car.isOut = true;
+                                if (car.outFromLap == 999) {
+                                    car.outFromLap = frame.lap;
+                                }
+                            }
                         }
                     }
                 }
@@ -729,9 +733,35 @@ int main () {
             std::vector<F1Car*> sorted;
             for (auto& car : activeCars)
                 sorted.push_back(&car);
-            std::sort(sorted.begin(), sorted.end(), [](F1Car* a, F1Car* b) {
-                return a->position < b->position;
-            });
+
+            if (frameIndex < currentRace.frames.size()) {
+                const RaceFrame& currentFrame = currentRace.frames[frameIndex];
+
+                std::sort(sorted.begin(), sorted.end(), [curLap, &currentFrame](F1Car* a, F1Car* b) {
+                    bool aOut = a->isOut || (curLap >= a->outFromLap);
+                    bool bOut = b->isOut || (curLap >= b->outFromLap);
+
+                    if (aOut != bOut) {
+                        return !aOut;
+                    }
+
+                    int aIdx = 99;
+                    int bIdx = 99;
+                    for (int i = 0; i < currentFrame.cars.size(); ++i) {
+                        if (currentFrame.cars[i].driver == a->driverCode) aIdx = currentFrame.cars[i].position;
+                        if (currentFrame.cars[i].driver == b->driverCode) bIdx = currentFrame.cars[i].position;
+                    }
+
+                    if (aIdx == bIdx || aIdx == 99 || bIdx == 99) {
+                        for (int i = 0; i < currentFrame.cars.size(); ++i) {
+                            if (currentFrame.cars[i].driver == a->driverCode) aIdx = i;
+                            if (currentFrame.cars[i].driver == b->driverCode) bIdx = i;
+                        }
+                    }
+
+                    return aIdx < bIdx;
+                });
+            }
 
             for (auto* car : sorted) {
                 bool inPit = std::find(car->pitLaps.begin(), car->pitLaps.end(), curLap) != car->pitLaps.end();
@@ -745,12 +775,10 @@ int main () {
 
                 // Tekst w legendzie
                 std::string posStr = "";
-                if (car->position < 99) {
-                    posStr = std::to_string(car->position) + ". ";
-                } else {
-                    for (size_t i=0; i<sorted.size(); i++) {
+                if (!isOut) {
+                    for (size_t i = 0; i < sorted.size(); ++i) {
                         if (sorted[i]->driverCode == car->driverCode) {
-                            posStr = std::to_string(i+1) + ". ";
+                            posStr = std::to_string(i + 1) + ". ";
                             break;
                         }
                     }
