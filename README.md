@@ -17,7 +17,7 @@ Aplikacja w C++ z interfejsem graficznym (SFML) oraz skryptem w Pythonie, służ
 
 ### 1. Wymagania wstępne
 Do uruchomienia projektu potrzebujesz:
-* Kompilatora C++ obsługującego standard C++17 lub nowszy.
+* Kompilatora **C++** obsługującego standard C++17 lub nowszy.
 * Zainstalowanego środowiska **Python** (wersja 3.8 lub nowsza).
 * Menedżera pakietów **vcpkg** (zintegrowanego z Twoim IDE, np. CLion) w celu automatycznego pobrania bibliotek `SFML` oraz `nlohmann-json`.
 
