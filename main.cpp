@@ -9,6 +9,7 @@
 
 using json = nlohmann::json;
 
+
 /**
  * @brief Pojedynczy punkt na mapie toru wyścigowego.
  */
