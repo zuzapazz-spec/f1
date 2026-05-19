@@ -15,36 +15,69 @@ Aplikacja w C++ z interfejsem graficznym (SFML) oraz skryptem w Pythonie, służ
 
 ## 🛠️ Jak uruchomić projekt lokalnie
 
-### 1. Wymagania wstępne
-Do uruchomienia projektu potrzebujesz:
-* Kompilatora **C++** obsługującego standard C++17 lub nowszy.
-* Zainstalowanego środowiska **Python** (wersja 3.8 lub nowsza).
-* Menedżera pakietów **vcpkg** (zintegrowanego z Twoim IDE, np. CLion) w celu automatycznego pobrania bibliotek `SFML` oraz `nlohmann-json`.
+Wybierz instrukcję dedykowaną dla Twojego systemu operacyjnego:
 
-### 2. Konfiguracja środowiska Python
-Projekt nie zawiera gotowego środowiska wirtualnego ze względu na optymalizację wielkości repozytorium. Należy je stworzyć lokalnie:
+---
+
+### Instrukcja dla systemu Windows (CLion + vcpkg)
+
+#### 1. Wymagania wstępne
+* Kompilator **C++** wspierający standard C++17 lub nowszy (np. MSVC lub MinGW zintegrowane z CLion).
+* Zainstalowane środowisko **Python** (wersja 3.8 lub nowsza).
+* Menedżer pakietów **vcpkg** zintegrowany z Twoim IDE.
+
+#### 2. Konfiguracja środowiska Python
+Uruchom terminal w folderze projektu i przygotuj środowisko wirtualne:
 ```bash
 # Tworzenie wirtualnego środowiska
 python -m venv f1env
 
-# Aktywacja środowiska (Windows)
+# Aktywacja środowiska na Windows
 f1env\Scripts\activate
 
-# Aktywacja środowiska (macOS / Linux)
+# Instalacja bibliotek
+pip install fastf1 requests
+```
+#### 3. Kompilacja C++
+Projekt używa vcpkg w trybie manifestu, co automatycznie załatwia konfigurację bibliotek:
+
+1. Otwórz główny folder projektu w CLion.
+2. Upewnij się, że w ustawieniach IDE (Settings -> Build, Execution, Deployment -> vcpkg) masz włączone wsparcie dla tego menedżera.
+3. CLion automatycznie wykryje plik CMakeLists.txt oraz manifest, pobierając właściwe wersje bibliotek **sfml** oraz **nlohmann-json**.
+4. Po zakończeniu indeksowania projektu kliknij ikonę Build, a następnie Run.
+
+---
+
+### Instrukcja dla systemu macOS / Linux (Terminal + Homebrew)
+
+#### 1. Wymagania wstępne
+* Środowisko kompilatora (np. Xcode Command Line Tools zainstalowane komendą `xcode-select --install`).
+* Zainstalowany menedżer pakietów **Homebrew**.
+* Zainstalowane środowisko **Python** (wersja 3.8 lub nowsza).
+
+#### 2. Instalacja bibliotek systemowych
+Przed otwarciem projektu musisz zainstalować wymagane pakiety bezpośrednio w systemie za pomocą Homebrew. Otwórz systemowy Terminal i wpisz:
+```bash
+brew install sfml nlohmann-json
+```
+
+#### 3. Konfiguracja środowiska Python
+W terminalu przejdź do folderu projektu i przygotuj środowisko wirtualnego:
+```bash
+# Tworzenie wirtualnego środowiska
+python3 -m venv f1env
+
+# Aktywacja środowiska na macOS / Linux
 source f1env/bin/activate
 
-# Instalacja wymaganych bibliotek
+# Instalacja bibliotek
 pip install fastf1 requests
 ```
 
-### 3. Kompilacja C++ i zarządzanie pakietami
-Projekt wykorzystuje menedżera pakietów **vcpkg** do automatycznego zarządzania zewnętrznymi bibliotekami (takimi jak `SFML` oraz `nlohmann-json`).
-
-Aby uruchomić projekt w środowisku CLion:
-1. Upewnij się, że masz włączone wsparcie dla `vcpkg` w ustawieniach IDE.
-2. Otwórz główny folder projektu – CLion automatycznie wykryje plik `CMakeLists.txt` oraz zintegrowany manifest vcpkg, po czym pobierze i skonfiguruje wymagane biblioteki.
-3. Po zakończeniu indeksowania projektu kliknij ikonę **Build**, a następnie **Run**.
-
+#### 4. Kompilacja C++
+1. Otwórz folder projektu w środowisku CLion.
+2. Ponieważ biblioteki zostały zainstalowane globalnie przez Homebrew, CMake automatycznie znajdzie je w ścieżkach systemowych.
+3. Kliknij ikonę Build, a następnie Run.
 
 ## 💡 Co jeśli brakuje pliku `races_all.json`?
 Jeśli plik z danymi wyścigowymi nie pobrał się automatycznie lub chcesz zaktualizować bazę danych o nowe wyścigi, musisz uruchomić skrypt Python, który pobierze świeże dane z API i sam wygeneruje ten plik.
@@ -57,7 +90,7 @@ Skrypt połączy się z API `FastF1` i pobierze wybrane statystyki.
 
 Następnie wpisz w terminalu komendę:
 ```bash
-python "f1 python.py" --save races_all.json
+cp races_all.json cmake-build-debug/races_all.json
 ```
 Wówczas plik `races_all.json` zostaje automatycznie zaktualizowany i gotowy do użycia.
 
