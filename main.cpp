@@ -466,8 +466,8 @@ int main () {
 
     sf::Text controlsText(font,
         "SPACJA  -  Pauza / Wznowienie\n"
-        "A  -  Przewijanie\n"
-        "D  -  Cofanie\n"
+        "D  -  Przewijanie\n"
+        "A  -  Cofanie\n"
         "F  -  Szybkie przewijanie\n"
         "R  -  Reset\n"
         "ESC  -  Powrot do menu", 13);
