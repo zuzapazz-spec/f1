@@ -1,7 +1,7 @@
 # Wizualizator Wyścigów F1
 
 Aplikacja w C++ z interfejsem graficznym (SFML) oraz skryptem w Pythonie, służąca do pobierania, analizowania i wizualizacji danych z wyścigów Formuły 1.
-![Podgląd aplikacji](main/monaco_gp_wizualizacja.png)
+![Podgląd aplikacji](monaco_gp_wizualizacja.png)
 
 ## Kluczowe funkcjonalności
 * **Moduł pobierania danych (Python):** Skrypt automatycznie łączy się z API biblioteki `FastF1`, skąd wyciąga szczegółowe czasy okrążeń, statystyki kierowców oraz pełne wyniki z sesji wyścigowych.
